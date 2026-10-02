@@ -4,6 +4,7 @@ plugins {
 	id("io.spring.dependency-management") version "1.1.7"
 	id("com.diffplug.spotless") version "8.1.0"
 	jacoco
+	id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "hexlet.code"
@@ -56,4 +57,11 @@ tasks.jacocoTestReport {
 
 tasks.check {
 	dependsOn(tasks.jacocoTestReport)
+}
+
+sonar {
+	properties {
+		property("sonar.projectKey", "AMOrlovSev_task-manager")
+		property("sonar.organization", "amorlovsev")
+	}
 }
