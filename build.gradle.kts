@@ -38,12 +38,8 @@ tasks.withType<Test> {
 
 spotless {
 	java {
-		importOrder()
-		removeUnusedImports()
 		googleJavaFormat().aosp()
 		formatAnnotations()
-		leadingTabsToSpaces(4)
-		endWithNewline()
 	}
 }
 
