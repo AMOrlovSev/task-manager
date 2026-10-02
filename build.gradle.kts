@@ -3,6 +3,8 @@ plugins {
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("com.diffplug.spotless") version "8.1.0"
+	jacoco
+	id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "hexlet.code"
@@ -42,5 +44,24 @@ spotless {
 		formatAnnotations()
 		leadingTabsToSpaces(4)
 		endWithNewline()
+	}
+}
+
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+	}
+}
+
+tasks.check {
+	dependsOn(tasks.jacocoTestReport)
+}
+
+sonar {
+	properties {
+		property("sonar.projectKey", "AMOrlovSev_task-manager")
+		property("sonar.organization", "amorlovsev")
 	}
 }
