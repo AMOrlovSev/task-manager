@@ -1,4 +1,4 @@
-package hexlet.code.AppApplication.controller;
+package hexlet.code.controller;
 
 
 import org.junit.jupiter.api.Test;
