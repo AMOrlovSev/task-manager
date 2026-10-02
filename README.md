@@ -13,16 +13,14 @@
 - Java 21
 - Spring Boot 4
 - Spring Web MVC
-- Spring Data JPA
-- H2 (in-memory)
+- Spring Boot Actuator
 - Gradle (Kotlin DSL)
-- JUnit 5, AssertJ
+- JUnit 5
 - JaCoCo
 - Spotless (google-java-format, AOSP)
 - SonarQube Cloud
-- GitHub Actions (CI)
-- Docker (multi-stage build)
-- Render (deploy)
+- GitHub Actions
+- Docker
 
 ## Требования
 
@@ -36,3 +34,57 @@
 
 ```bash
 ./gradlew bootRun
+```
+
+Приложение: http://localhost:8080/welcome
+
+### Через Make
+
+```bash
+make run      # запуск
+make test     # тесты
+make lint     # проверка форматирования
+make format   # автоформатирование
+```
+
+### Docker
+
+```bash
+docker build -t task-manager .
+docker run --rm -p 8080:8080 task-manager
+```
+
+## Разработка
+
+### Тесты
+
+```bash
+./gradlew test
+```
+
+## Покрытие (JaCoCo)
+
+```bash
+./gradlew test jacocoTestReport
+```
+HTML-отчёт: `build/reports/jacoco/test/html/index.html`
+
+### Форматирование (Spotless)
+
+```bash
+./gradlew spotlessApply   # применить
+./gradlew spotlessCheck   # проверить
+```
+
+## CI/CD
+
+- CI — GitHub Actions: сборка, тесты, покрытие, анализ SonarQube.
+- Деплой — Render (Docker).
+- Качество — SonarCloud.
+
+## API
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | `/welcome` | Приветствие |
+| GET | `/actuator/health` | Статус приложения |

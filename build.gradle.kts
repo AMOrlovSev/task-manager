@@ -16,6 +16,10 @@ java {
 	}
 }
 
+application {
+	mainClass = "hexlet.code.AppApplication"
+}
+
 repositories {
 	mavenCentral()
 }
@@ -38,12 +42,8 @@ tasks.withType<Test> {
 
 spotless {
 	java {
-		importOrder()
-		removeUnusedImports()
 		googleJavaFormat().aosp()
 		formatAnnotations()
-		leadingTabsToSpaces(4)
-		endWithNewline()
 	}
 }
 
