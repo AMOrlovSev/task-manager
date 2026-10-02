@@ -3,6 +3,7 @@ plugins {
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("com.diffplug.spotless") version "8.1.0"
+	jacoco
 }
 
 group = "hexlet.code"
@@ -43,4 +44,16 @@ spotless {
 		leadingTabsToSpaces(4)
 		endWithNewline()
 	}
+}
+
+tasks.jacocoTestReport {
+	dependsOn(tasks.test)
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+	}
+}
+
+tasks.check {
+	dependsOn(tasks.jacocoTestReport)
 }
