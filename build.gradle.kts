@@ -2,6 +2,7 @@ plugins {
 	java
 	id("org.springframework.boot") version "4.1.1"
 	id("io.spring.dependency-management") version "1.1.7"
+	id("com.diffplug.spotless") version "8.1.0"
 }
 
 group = "hexlet.code"
@@ -31,4 +32,15 @@ dependencies {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+spotless {
+	java {
+		importOrder()
+		removeUnusedImports()
+		googleJavaFormat().aosp()
+		formatAnnotations()
+		leadingTabsToSpaces(4)
+		endWithNewline()
+	}
 }
