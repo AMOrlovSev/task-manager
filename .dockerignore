@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Gradle
+.gradle
+build
+out
+
+# IDE
+.idea
+*.iml
+*.ipr
+*.iws
+.vscode
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Секреты и локальные конфиги
+.env
+*.pem
+application-local.yml
+
+# Логи
+*.log
+logs
+
+# Node (если есть фронтенд)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Makefile и CI
+Makefile
+.github
