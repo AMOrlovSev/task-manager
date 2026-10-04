@@ -36,7 +36,7 @@ dependencies {
 	runtimeOnly("org.postgresql:postgresql")
 
 	// --- H2 Console (только для разработки) ---
-	runtimeOnly("com.h2database:h2")
+	implementation("org.springframework.boot:spring-boot-h2console")
 
 	// --- Lombok ---
 	compileOnly("org.projectlombok:lombok")
