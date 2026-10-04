@@ -5,3 +5,9 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     show-sql: false
+    properties:
+      hibernate:
+        default_schema: task_manager
+  flyway:
+    schemas: task_manager
+    default-schema: task_manager
