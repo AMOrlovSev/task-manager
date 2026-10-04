@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: ${JDBC_DATABASE_URL}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
