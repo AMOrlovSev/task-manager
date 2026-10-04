@@ -1,6 +1,12 @@
 spring:
   application:
     name: app
+  profiles:
+    default: development
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
 
 server:
   port: ${PORT:8080}
