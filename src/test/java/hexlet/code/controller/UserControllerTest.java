@@ -1,8 +1,19 @@
 package hexlet.code.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import hexlet.code.TestcontainersConfig;
 import hexlet.code.model.User;
 import hexlet.code.repository.UserRepository;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -15,19 +26,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.matchesPattern;
-import static org.hamcrest.Matchers.nullValue;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
@@ -36,21 +34,18 @@ public class UserControllerTest {
 
     private static final String URL = "/api/users";
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @Autowired
-    private UserRepository userRepository;
+    @Autowired private UserRepository userRepository;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
+    @Autowired private PasswordEncoder passwordEncoder;
 
     // ---------- POST ----------
 
     @Test
     void testCreateWithAllFields() throws Exception {
-        var body = """
+        var body =
+                """
                 {
                   "email": "john@x.com",
                   "password": "qwerty123",
@@ -72,7 +67,8 @@ public class UserControllerTest {
 
     @Test
     void testCreateWithoutNames() throws Exception {
-        var body = """
+        var body =
+                """
                 {
                   "email": "john@x.com",
                   "password": "qwerty123"
@@ -87,7 +83,8 @@ public class UserControllerTest {
 
     @Test
     void testCreateWithInvalidEmail() throws Exception {
-        var body = """
+        var body =
+                """
                 { "email": "not-an-email", "password": "qwerty123" }
                 """;
 
@@ -97,7 +94,8 @@ public class UserControllerTest {
 
     @Test
     void testCreateWithShortPassword() throws Exception {
-        var body = """
+        var body =
+                """
                 { "email": "john@x.com", "password": "ab" }
                 """;
 
@@ -107,7 +105,8 @@ public class UserControllerTest {
 
     @Test
     void testCreateWithoutEmail() throws Exception {
-        var body = """
+        var body =
+                """
                 { "password": "qwerty123" }
                 """;
 
@@ -116,25 +115,23 @@ public class UserControllerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "john@x.com",
-            "John@x.com",
-            "JOHN@X.com"
-    })
+    @ValueSource(strings = {"john@x.com", "John@x.com", "JOHN@X.com"})
     void testCreateDuplicate(String duplicateEmail) throws Exception {
-        var first = """
+        var first =
+                """
                 { "email": "john@x.com", "password": "qwerty123" }
                 """;
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(first))
                 .andExpect(status().isCreated());
 
-        var second = """
+        var second =
+                """
                 { "email": "%s", "password": "qwerty123" }
-                """.formatted(duplicateEmail);
+                """
+                        .formatted(duplicateEmail);
         mockMvc.perform(post(URL).contentType(MediaType.APPLICATION_JSON).content(second))
                 .andExpect(status().isConflict());
     }
-
 
     // ---------- GET ----------
 
@@ -166,10 +163,8 @@ public class UserControllerTest {
 
     @Test
     void testGetNonExistent() throws Exception {
-        mockMvc.perform(get(URL + "/999999"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get(URL + "/999999")).andExpect(status().isNotFound());
     }
-
 
     // ---------- PUT ----------
 
@@ -177,15 +172,18 @@ public class UserControllerTest {
     void testUpdateEmailAndPasswordKeepsNames() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
-        var body = """
+        var body =
+                """
                 {
                   "email": "new@x.com",
                   "password": "newpassword"
                 }
                 """;
 
-        mockMvc.perform(put(URL + "/" + user.getId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("new@x.com"))
                 .andExpect(jsonPath("$.firstName").value("John"))
@@ -203,8 +201,10 @@ public class UserControllerTest {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
-        mockMvc.perform(put(URL + "/" + user.getId())
-                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("john@x.com"))
                 .andExpect(jsonPath("$.firstName").value("John"))
@@ -221,12 +221,15 @@ public class UserControllerTest {
     void testUpdateFirstNameToNull() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
-        var body = """
+        var body =
+                """
                 { "firstName": null }
                 """;
 
-        mockMvc.perform(put(URL + "/" + user.getId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value(nullValue()));
 
@@ -239,12 +242,15 @@ public class UserControllerTest {
     void testUpdateEmailNull() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", null, null);
 
-        var body = """
+        var body =
+                """
                 { "email": null }
                 """;
 
-        mockMvc.perform(put(URL + "/" + user.getId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isBadRequest());
     }
 
@@ -252,26 +258,41 @@ public class UserControllerTest {
     void testUpdateShortPassword() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", null, null);
 
-        var body = """
+        var body =
+                """
                 { "password": "ab" }
                 """;
 
-        mockMvc.perform(put(URL + "/" + user.getId())
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
     void testUpdateNonExistent() throws Exception {
-        var body = """
+        var body =
+                """
                 { "firstName": "X" }
                 """;
 
-        mockMvc.perform(put(URL + "/999999")
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
+        mockMvc.perform(put(URL + "/999999").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void testUpdateEmailNullReturns400() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", null, null);
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                            { "email": null }
+                            """))
+                .andExpect(status().isBadRequest());
+    }
 
     // ---------- DELETE ----------
 
@@ -279,19 +300,15 @@ public class UserControllerTest {
     void testDelete() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", null, null);
 
-        mockMvc.perform(delete(URL + "/" + user.getId()))
-                .andExpect(status().isNoContent());
+        mockMvc.perform(delete(URL + "/" + user.getId())).andExpect(status().isNoContent());
 
-        mockMvc.perform(get(URL + "/" + user.getId()))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(get(URL + "/" + user.getId())).andExpect(status().isNotFound());
     }
 
     @Test
     void testDeleteNonExistent() throws Exception {
-        mockMvc.perform(delete(URL + "/999999"))
-                .andExpect(status().isNotFound());
+        mockMvc.perform(delete(URL + "/999999")).andExpect(status().isNotFound());
     }
-
 
     // ---------- helpers ----------
 
@@ -304,5 +321,4 @@ public class UserControllerTest {
         user.setCreatedAt(LocalDateTime.now());
         return userRepository.save(user);
     }
-
 }
