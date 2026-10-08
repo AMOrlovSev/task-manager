@@ -25,26 +25,39 @@ repositories {
 }
 
 dependencies {
-	// --- Основные ---
+	// --- Spring Boot starters ---
 	implementation("org.springframework.boot:spring-boot-starter-webmvc")
 	implementation("org.springframework.boot:spring-boot-starter-actuator")
 	implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-
-	// --- Миграции БД (Flyway) ---
+	implementation("org.springframework.boot:spring-boot-starter-validation")
 	implementation("org.springframework.boot:spring-boot-starter-flyway")
-	runtimeOnly("org.flywaydb:flyway-database-postgresql")
-	runtimeOnly("org.postgresql:postgresql")
 
-	// --- H2 Console (только для разработки) ---
-	implementation("org.springframework.boot:spring-boot-h2console")
+	// --- Безопасность ---
+	implementation("org.springframework.security:spring-security-crypto")
 
-	// --- Lombok ---
+	// --- H2 (только для разработки) ---
+	runtimeOnly("com.h2database:h2")
+	developmentOnly("org.springframework.boot:spring-boot-h2console")
+
+	// --- Сериализация / OpenAPI ---
+	implementation("org.openapitools:jackson-databind-nullable:0.2.10")
+
+	// --- Lombok + MapStruct (порядок процессоров важен!) ---
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
+	annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+
+	implementation("org.mapstruct:mapstruct:1.6.3")
+	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
+
 	testCompileOnly("org.projectlombok:lombok")
 	testAnnotationProcessor("org.projectlombok:lombok")
 
-	// --- Тестовые зависимости ---
+	// --- Runtime: драйверы и миграции БД ---
+	runtimeOnly("org.postgresql:postgresql")
+	runtimeOnly("org.flywaydb:flyway-database-postgresql")
+
+	// --- Тестовые стартеры ---
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
