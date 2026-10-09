@@ -3,6 +3,7 @@ package hexlet.code.handler;
 import hexlet.code.exception.DuplicateEmailException;
 import hexlet.code.exception.ResourceAlreadyExistsException;
 import hexlet.code.exception.ResourceNotFoundException;
+import hexlet.code.exception.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(errors);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<Map<String, String>> handleManualValidation(ValidationException ex) {
+        log.warn("Validation failed: {}", ex.getErrors());
+        return ResponseEntity
+                .badRequest()
+                .body(ex.getErrors());
     }
 
     @ExceptionHandler(ResourceAlreadyExistsException.class)

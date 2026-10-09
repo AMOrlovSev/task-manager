@@ -39,9 +39,6 @@ dependencies {
 	runtimeOnly("com.h2database:h2")
 	developmentOnly("org.springframework.boot:spring-boot-h2console")
 
-	// --- Сериализация / OpenAPI ---
-	implementation("org.openapitools:jackson-databind-nullable:0.2.10")
-
 	// --- Lombok + MapStruct (порядок процессоров важен!) ---
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
