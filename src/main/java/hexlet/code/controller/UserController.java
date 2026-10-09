@@ -4,6 +4,7 @@ import hexlet.code.dto.UserCreateDTO;
 import hexlet.code.dto.UserDTO;
 import hexlet.code.service.UserService;
 import jakarta.validation.Valid;
+import java.net.URI;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -13,8 +14,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
-
-import java.net.URI;
 
 @RestController
 @RequestMapping("/api/users")
@@ -28,7 +27,8 @@ public class UserController {
 
     @GetMapping
     public Page<UserDTO> index(
-            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
+                    Pageable pageable) {
         return userService.findAll(pageable);
     }
 
@@ -40,18 +40,11 @@ public class UserController {
     @PostMapping
     public ResponseEntity<UserDTO> create(@Valid @RequestBody UserCreateDTO dto) {
         UserDTO created = userService.create(dto);
-        return ResponseEntity
-                .created(URI.create("/api/users/" + created.id()))
-                .body(created);
+        return ResponseEntity.created(URI.create("/api/users/" + created.id())).body(created);
     }
 
-    @PatchMapping(
-            path = "/{id}",
-            consumes = MediaType.APPLICATION_JSON_VALUE
-    )
-    public UserDTO update(
-            @PathVariable Long id,
-            @RequestBody JsonNode patchNode) {
+    @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public UserDTO update(@PathVariable Long id, @RequestBody JsonNode patchNode) {
         return userService.update(id, patchNode);
     }
 

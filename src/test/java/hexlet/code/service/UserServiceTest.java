@@ -53,14 +53,15 @@ class UserServiceTest {
 
         // Те же настройки, что Spring Boot применяет к своему JsonMapper по умолчанию:
         // неизвестные поля игнорируются.
-        jsonMapper = JsonMapper.builder()
-                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                .build();
+        jsonMapper =
+                JsonMapper.builder()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                        .build();
 
         validator = Validation.buildDefaultValidatorFactory().getValidator();
 
-        userService = new UserService(
-                userRepository, userMapper, passwordEncoder, jsonMapper, validator);
+        userService =
+                new UserService(userRepository, userMapper, passwordEncoder, jsonMapper, validator);
     }
 
     // ============================ findAll ============================
@@ -163,7 +164,11 @@ class UserServiceTest {
         when(userRepository.existsByEmail("new@x.com")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UserDTO result = userService.update(1L, patch("""
+        UserDTO result =
+                userService.update(
+                        1L,
+                        patch(
+                                """
                 { "email": "new@x.com", "password": "newpassword" }
                 """));
 
@@ -179,7 +184,10 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        userService.update(1L, patch("""
+        userService.update(
+                1L,
+                patch(
+                        """
                 { "firstName": null }"""));
 
         assertThat(user.getFirstName()).isNull();
@@ -191,7 +199,12 @@ class UserServiceTest {
         var user = existingUser(1L, "john@x.com", "qwerty123", "John", "Doe");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "email": null }""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -207,7 +220,12 @@ class UserServiceTest {
         var digestBefore = user.getPasswordDigest();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "password": null }""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -224,7 +242,10 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        userService.update(1L, patch("""
+        userService.update(
+                1L,
+                patch(
+                        """
                 { "firstName": "Johnny" }"""));
 
         assertThat(user.getPasswordDigest()).isEqualTo(digestBefore);
@@ -237,7 +258,12 @@ class UserServiceTest {
         var digestBefore = user.getPasswordDigest();
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "password": "ab" }""")))
                 .isInstanceOf(ValidationException.class);
 
@@ -250,7 +276,12 @@ class UserServiceTest {
         var user = existingUser(1L, "john@x.com", "qwerty123", "John", "Doe");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "password": "" }""")))
                 .isInstanceOf(ValidationException.class);
 
@@ -262,7 +293,12 @@ class UserServiceTest {
         var user = existingUser(1L, "john@x.com", "qwerty123", "John", "Doe");
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "email": "not-an-email" }""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -277,7 +313,12 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.existsByEmail("taken@x.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userService.update(1L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        1L,
+                                        patch(
+                                                """
                 { "email": "taken@x.com" }""")))
                 .isInstanceOf(DuplicateEmailException.class)
                 .hasMessageContaining("taken@x.com");
@@ -293,7 +334,11 @@ class UserServiceTest {
         when(userRepository.existsByEmail("new@x.com")).thenReturn(false);
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UserDTO result = userService.update(1L, patch("""
+        UserDTO result =
+                userService.update(
+                        1L,
+                        patch(
+                                """
                 { "email": "NEW@X.COM" }"""));
 
         assertThat(result.email()).isEqualTo("new@x.com");
@@ -306,7 +351,11 @@ class UserServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        UserDTO result = userService.update(1L, patch("""
+        UserDTO result =
+                userService.update(
+                        1L,
+                        patch(
+                                """
                 { "email": "JOHN@X.COM" }"""));
 
         assertThat(result.email()).isEqualTo("john@x.com");
@@ -317,7 +366,12 @@ class UserServiceTest {
     void updateNonExistentUserThrows() {
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.update(999L, patch("""
+        assertThatThrownBy(
+                        () ->
+                                userService.update(
+                                        999L,
+                                        patch(
+                                                """
                 { "firstName": "X" }""")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
@@ -347,8 +401,8 @@ class UserServiceTest {
 
     // ============================ helpers ============================
 
-    private User existingUser(Long id, String email, String rawPassword,
-                              String firstName, String lastName) {
+    private User existingUser(
+            Long id, String email, String rawPassword, String firstName, String lastName) {
         var user = new User();
         user.setId(id);
         user.setEmail(email);

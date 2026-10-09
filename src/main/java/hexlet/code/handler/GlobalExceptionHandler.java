@@ -4,6 +4,8 @@ import hexlet.code.exception.DuplicateEmailException;
 import hexlet.code.exception.ResourceAlreadyExistsException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -24,9 +26,6 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -44,8 +43,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleValidationErrors(
             MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
+        ex.getBindingResult()
+                .getFieldErrors()
+                .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
         log.warn("Validation failed: {}", errors);
         return ResponseEntity.badRequest().body(errors);
     }
@@ -99,8 +99,7 @@ public class GlobalExceptionHandler {
 
     /** 400 — не передан обязательный параметр запроса */
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<String> handleMissingParam(
-            MissingServletRequestParameterException ex) {
+    public ResponseEntity<String> handleMissingParam(MissingServletRequestParameterException ex) {
         log.warn("Missing request parameter: {}", ex.getParameterName());
         return ResponseEntity.badRequest()
                 .body("Missing required parameter: " + ex.getParameterName());
@@ -125,8 +124,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<String> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         log.warn("Type mismatch for '{}': {}", ex.getName(), ex.getMessage());
-        return ResponseEntity.badRequest()
-                .body("Invalid value for parameter: " + ex.getName());
+        return ResponseEntity.badRequest().body("Invalid value for parameter: " + ex.getName());
     }
 
     /** 400 — нечитаемое тело запроса (битый JSON) */
@@ -140,8 +138,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BindException.class)
     public ResponseEntity<Map<String, String>> handleBind(BindException ex) {
         Map<String, String> errors = new HashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(error ->
-                errors.put(error.getField(), error.getDefaultMessage()));
+        ex.getBindingResult()
+                .getFieldErrors()
+                .forEach(error -> errors.put(error.getField(), error.getDefaultMessage()));
         log.warn("Binding failed: {}", errors);
         return ResponseEntity.badRequest().body(errors);
     }

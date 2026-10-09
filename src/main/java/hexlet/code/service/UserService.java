@@ -11,22 +11,16 @@ import hexlet.code.model.User;
 import hexlet.code.repository.UserRepository;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
-import org.springframework.core.MethodParameter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.BeanPropertyBindingResult;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -38,11 +32,12 @@ public class UserService {
     private final JsonMapper jsonMapper;
     private final Validator validator;
 
-    public UserService(UserRepository userRepository,
-                       UserMapper userMapper,
-                       PasswordEncoder passwordEncoder,
-                       JsonMapper jsonMapper,
-                       Validator validator) {
+    public UserService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            JsonMapper jsonMapper,
+            Validator validator) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
@@ -51,8 +46,7 @@ public class UserService {
     }
 
     public Page<UserDTO> findAll(Pageable pageable) {
-        return userRepository.findAll(pageable)
-                .map(userMapper::toDto);
+        return userRepository.findAll(pageable).map(userMapper::toDto);
     }
 
     public UserDTO findById(Long id) {
@@ -101,7 +95,8 @@ public class UserService {
         if (dto.getEmail() != null) {
             String normalized = normalize(dto.getEmail());
             if (!normalized.equals(user.getEmail()) && userRepository.existsByEmail(normalized)) {
-                throw new DuplicateEmailException("User with email " + normalized + " already exists");
+                throw new DuplicateEmailException(
+                        "User with email " + normalized + " already exists");
             }
             user.setEmail(normalized);
         }
@@ -124,8 +119,10 @@ public class UserService {
     }
 
     private User getUserOrThrow(Long id) {
-        return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User with id " + id + " not found"));
+        return userRepository
+                .findById(id)
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("User with id " + id + " not found"));
     }
 
     private String normalize(String email) {
