@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import hexlet.code.dto.UserCreateDTO;
 import hexlet.code.dto.UserDTO;
+import hexlet.code.dto.UserUpdateDTO;
 import hexlet.code.exception.DuplicateEmailException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
@@ -372,6 +373,37 @@ class UserServiceTest {
                 { "firstName": "X" }""")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
+    }
+
+    @Test
+    void toUpdateDtoMapsEditableFieldsAndIgnoresPassword() {
+        var user = new User();
+        user.setId(42L);
+        user.setEmail("john@x.com");
+        user.setPasswordDigest("$2a$10$hash");
+        user.setFirstName("John");
+        user.setLastName("Doe");
+
+        UserUpdateDTO dto = userMapper.toUpdateDto(user);
+
+        assertThat(dto.getEmail()).isEqualTo("john@x.com");
+        assertThat(dto.getFirstName()).isEqualTo("John");
+        assertThat(dto.getLastName()).isEqualTo("Doe");
+        assertThat(dto.getPassword()).isNull();
+    }
+
+    @Test
+    void toUpdateDtoDoesNotExposePasswordDigest() {
+        var user = new User();
+        user.setPasswordDigest("$2a$10$secret");
+        user.setEmail("john@x.com");
+
+        JsonNode json = jsonMapper.valueToTree(userMapper.toUpdateDto(user));
+
+        assertThat(json.has("passwordDigest")).isFalse();
+        assertThat(json.has("id")).isFalse();
+        assertThat(json.has("createdAt")).isFalse();
+        assertThat(json.has("updatedAt")).isFalse();
     }
 
     // ============================ delete ============================

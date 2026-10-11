@@ -12,6 +12,9 @@ import org.mapstruct.MappingTarget;
 public abstract class UserMapper {
     public abstract UserDTO toDto(User user);
 
+    @Mapping(target = "password", ignore = true)
+    public abstract UserUpdateDTO toUpdateDto(User user);
+
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "passwordDigest", ignore = true)
     @Mapping(target = "email", ignore = true)

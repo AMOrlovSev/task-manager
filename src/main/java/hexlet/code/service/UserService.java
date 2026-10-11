@@ -71,7 +71,7 @@ public class UserService {
     public UserDTO update(Long id, JsonNode patchNode) {
         User user = getUserOrThrow(id);
 
-        JsonNode currentJson = jsonMapper.valueToTree(user);
+        JsonNode currentJson = jsonMapper.valueToTree(userMapper.toUpdateDto(user));
         JsonNode patchedJson = jsonMapper.updateValue(currentJson, patchNode);
         UserUpdateDTO dto = jsonMapper.treeToValue(patchedJson, UserUpdateDTO.class);
 
