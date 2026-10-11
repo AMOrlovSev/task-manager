@@ -9,3 +9,8 @@ spring:
       path: /h2-console
   jpa:
     show-sql: true
+
+app:
+  admin:
+    email: hexlet@example.com
+    password: qwerty

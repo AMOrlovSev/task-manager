@@ -11,3 +11,8 @@ spring:
   flyway:
     schemas: task_manager
     default-schema: task_manager
+
+app:
+  admin:
+    email: ${ADMIN_EMAIL}
+    password: ${ADMIN_PASSWORD}
