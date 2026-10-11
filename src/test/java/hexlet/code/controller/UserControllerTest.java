@@ -179,24 +179,29 @@ class UserControllerTest {
 
     @Test
     void testGetAll() throws Exception {
+        var before = userRepository.count();
+
         persistUser("a@x.com", "qwerty123", "A", "A");
         persistUser("b@x.com", "qwerty123", "B", "B");
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(before + 2)))
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$.length()").value(before + 2))
                 .andExpect(jsonPath("$[0].password").doesNotExist())
                 .andExpect(jsonPath("$[0].passwordDigest").doesNotExist());
     }
 
     @Test
     void testGetAllEmpty() throws Exception {
+        var before = userRepository.count();
+
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
-                .andExpect(header().string("X-Total-Count", "0"))
+                .andExpect(header().string("X-Total-Count", String.valueOf(before)))
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.length()").value(before));
     }
 
     // ============================ PUT ============================
