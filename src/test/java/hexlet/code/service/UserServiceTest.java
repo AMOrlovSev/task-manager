@@ -24,10 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import tools.jackson.databind.DeserializationFeature;
@@ -67,21 +63,22 @@ class UserServiceTest {
     // ============================ findAll ============================
 
     @Test
-    void findAllReturnsMappedPage() {
+    void findAllReturnsMappedList() {
         var user1 = existingUser(1L, "a@x.com", "qwerty123", "A", "A");
         var user2 = existingUser(2L, "b@x.com", "qwerty123", "B", "B");
-        Pageable pageable = PageRequest.of(0, 20);
-        when(userRepository.findAll(pageable))
-                .thenReturn(new PageImpl<>(List.of(user1, user2), pageable, 2));
+        when(userRepository.findAll()).thenReturn(List.of(user1, user2));
 
-        Page<UserDTO> page = userService.findAll(pageable);
+        List<UserDTO> users = userService.findAll();
 
-        assertThat(page.getTotalElements()).isEqualTo(2);
-        assertThat(page.getContent())
-                .extracting(UserDTO::email)
-                .containsExactly("a@x.com", "b@x.com");
+        assertThat(users).hasSize(2);
+        assertThat(users).extracting(UserDTO::email).containsExactly("a@x.com", "b@x.com");
+    }
 
-        assertThat(page.getContent()).allSatisfy(dto -> assertThat(dto.id()).isNotNull());
+    @Test
+    void findAllReturnsEmptyListWhenNoUsers() {
+        when(userRepository.findAll()).thenReturn(List.of());
+
+        assertThat(userService.findAll()).isEmpty();
     }
 
     // ============================ findById ============================

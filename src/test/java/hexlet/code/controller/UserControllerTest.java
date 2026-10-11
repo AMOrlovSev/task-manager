@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -172,21 +173,30 @@ class UserControllerTest {
     }
 
     @Test
+    void testGetNonExistent() throws Exception {
+        mockMvc.perform(get(URL + "/999999")).andExpect(status().isNotFound());
+    }
+
+    @Test
     void testGetAll() throws Exception {
         persistUser("a@x.com", "qwerty123", "A", "A");
         persistUser("b@x.com", "qwerty123", "B", "B");
 
         mockMvc.perform(get(URL))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isArray())
-                .andExpect(jsonPath("$.content.length()").value(2))
-                .andExpect(jsonPath("$.content[0].password").doesNotExist())
-                .andExpect(jsonPath("$.content[0].passwordDigest").doesNotExist());
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].password").doesNotExist())
+                .andExpect(jsonPath("$[0].passwordDigest").doesNotExist());
     }
 
     @Test
-    void testGetNonExistent() throws Exception {
-        mockMvc.perform(get(URL + "/999999")).andExpect(status().isNotFound());
+    void testGetAllEmpty() throws Exception {
+        mockMvc.perform(get(URL))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "0"))
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
     }
 
     // ============================ PUT ============================

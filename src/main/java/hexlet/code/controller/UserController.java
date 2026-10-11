@@ -5,10 +5,7 @@ import hexlet.code.dto.UserDTO;
 import hexlet.code.service.UserService;
 import jakarta.validation.Valid;
 import java.net.URI;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +23,11 @@ public class UserController {
     }
 
     @GetMapping
-    public Page<UserDTO> index(
-            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.ASC)
-                    Pageable pageable) {
-        return userService.findAll(pageable);
+    public ResponseEntity<List<UserDTO>> index() {
+        List<UserDTO> users = userService.findAll();
+        return ResponseEntity.ok()
+                .header("X-Total-Count", String.valueOf(users.size()))
+                .body(users);
     }
 
     @GetMapping("/{id}")
