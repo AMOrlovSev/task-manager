@@ -43,7 +43,7 @@ public class UserController {
         return ResponseEntity.created(URI.create("/api/users/" + created.id())).body(created);
     }
 
-    @PatchMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public UserDTO update(@PathVariable Long id, @RequestBody JsonNode patchNode) {
         return userService.update(id, patchNode);
     }

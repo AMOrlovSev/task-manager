@@ -5,7 +5,6 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -190,18 +189,18 @@ class UserControllerTest {
         mockMvc.perform(get(URL + "/999999")).andExpect(status().isNotFound());
     }
 
-    // ============================ PATCH ============================
+    // ============================ PUT ============================
     // Правила:
     //   email:    отсутствует → не менять | null → 400 | значение → нормализовать
     //   password: отсутствует → не менять | null → 400 | значение → перекодировать
     //   firstName/lastName: отсутствует → не менять | null → очистить | значение → заменить
 
     @Test
-    void testPatchEmailAndPasswordKeepsNames() throws Exception {
+    void testPutEmailAndPasswordKeepsNames() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -221,12 +220,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchEmptyBodyKeepsEverything() throws Exception {
+    void testPutEmptyBodyKeepsEverything() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{}"))
                 .andExpect(status().isOk())
@@ -242,11 +241,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchFirstNameToNull() throws Exception {
+    void testPutFirstNameToNull() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -261,11 +260,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchLastNameToNull() throws Exception {
+    void testPutLastNameToNull() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -280,11 +279,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchEmailNullReturns400() throws Exception {
+    void testPutEmailNullReturns400() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -296,12 +295,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchPasswordNullReturns400() throws Exception {
+    void testPutPasswordNullReturns400() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -313,12 +312,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchPasswordAbsentKeepsDigest() throws Exception {
+    void testPutPasswordAbsentKeepsDigest() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -331,11 +330,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchEmailAbsentKeepsEmail() throws Exception {
+    void testPutEmailAbsentKeepsEmail() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -348,12 +347,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchShortPassword() throws Exception {
+    void testPutShortPassword() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -365,12 +364,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchEmptyPassword() throws Exception {
+    void testPutEmptyPassword() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
         var digestBefore = user.getPasswordDigest();
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -382,11 +381,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchInvalidEmail() throws Exception {
+    void testPutInvalidEmail() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -398,12 +397,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchEmailToDuplicate() throws Exception {
+    void testPutEmailToDuplicate() throws Exception {
         persistUser("taken@x.com", "qwerty123", null, null);
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -415,11 +414,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchNormalizesEmail() throws Exception {
+    void testPutNormalizesEmail() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -432,11 +431,11 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchSameEmailDifferentCaseIsNotDuplicate() throws Exception {
+    void testPutSameEmailDifferentCaseIsNotDuplicate() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -446,7 +445,7 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchMalformedJsonReturns400() throws Exception {
+    void testPutMalformedJsonReturns400() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
         var body =
@@ -455,7 +454,7 @@ class UserControllerTest {
                 """;
 
         mockMvc.perform(
-                        patch(URL + "/" + user.getId())
+                        put(URL + "/" + user.getId())
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
                 .andExpect(status().isBadRequest());
@@ -466,27 +465,14 @@ class UserControllerTest {
     }
 
     @Test
-    void testPatchNonExistent() throws Exception {
+    void testPutNonExistent() throws Exception {
         mockMvc.perform(
-                        patch(URL + "/999999")
+                        put(URL + "/999999")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
                                 { "firstName": "X" }"""))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    void testPutIsNotSupportedReturns405() throws Exception {
-        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
-
-        mockMvc.perform(
-                        put(URL + "/" + user.getId())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        """
-                                { "firstName": "X" }"""))
-                .andExpect(status().isMethodNotAllowed());
     }
 
     // ============================ DELETE ============================
