@@ -6,6 +6,7 @@ import hexlet.code.dto.UserCreateDTO;
 import hexlet.code.dto.UserDTO;
 import hexlet.code.dto.UserUpdateDTO;
 import hexlet.code.model.User;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ class UserMapperTest {
         assertThat(dto.firstName()).isEqualTo("John");
         assertThat(dto.lastName()).isEqualTo("Doe");
         assertThat(dto.email()).isEqualTo("john@x.com");
-        assertThat(dto.createdAt()).isEqualTo(LocalDateTime.of(2026, 10, 9, 13, 7));
+        assertThat(dto.createdAt()).isEqualTo(LocalDate.of(2026, 10, 9));
     }
 
     // ============================ toEntity ============================

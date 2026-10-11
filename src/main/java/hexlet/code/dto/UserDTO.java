@@ -1,6 +1,6 @@
 package hexlet.code.dto;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public record UserDTO(
-        Long id, String firstName, String lastName, String email, LocalDateTime createdAt) {}
+        Long id, String firstName, String lastName, String email, LocalDate createdAt) {}
