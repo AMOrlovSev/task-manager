@@ -69,6 +69,9 @@ public class UserService {
 
     @Transactional
     public UserDTO update(Long id, JsonNode patchNode) {
+        if (patchNode == null || !patchNode.isObject()) {
+            throw new ValidationException(Map.of("body", "Patch body must be a JSON object"));
+        }
         User user = getUserOrThrow(id);
 
         JsonNode currentJson = jsonMapper.valueToTree(userMapper.toUpdateDto(user));

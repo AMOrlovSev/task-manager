@@ -194,7 +194,7 @@ class UserControllerTest {
     }
 
     @Test
-    void testGetAllEmpty() throws Exception {
+    void testGetAllReturnsCurrentUsers() throws Exception {
         var before = userRepository.count();
 
         mockMvc.perform(get(URL))
@@ -488,6 +488,65 @@ class UserControllerTest {
                                         """
                                 { "firstName": "X" }"""))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testPutIgnoresIdAndPasswordDigestInBody() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+        var digestBefore = user.getPasswordDigest();
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "id": 999, "passwordDigest": "hacked", "firstName": "X" }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(user.getId()))
+                .andExpect(jsonPath("$.firstName").value("X"))
+                .andExpect(jsonPath("$.lastName").value("Doe"));
+
+        var after = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(after.getId()).isEqualTo(user.getId());
+        assertThat(after.getPasswordDigest()).isEqualTo(digestBefore);
+        assertThat(passwordEncoder.matches("qwerty123", after.getPasswordDigest())).isTrue();
+    }
+
+    @Test
+    void testPutArrayBodyReturns400() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("[1, 2, 3]"))
+                .andExpect(status().isBadRequest());
+
+        var after = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(after.getFirstName()).isEqualTo("John");
+    }
+
+    @Test
+    void testPutStringBodyReturns400() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("\"x\""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testPutNullBodyReturns400() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("null"))
+                .andExpect(status().isBadRequest());
     }
 
     // ============================ DELETE ============================

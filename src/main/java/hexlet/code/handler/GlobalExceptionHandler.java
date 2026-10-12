@@ -1,13 +1,13 @@
 package hexlet.code.handler;
 
 import hexlet.code.exception.DuplicateEmailException;
-import hexlet.code.exception.ResourceAlreadyExistsException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import java.util.HashMap;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -56,16 +56,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ex.getErrors());
     }
 
-    @ExceptionHandler(ResourceAlreadyExistsException.class)
-    public ResponseEntity<String> handleAlreadyExists(ResourceAlreadyExistsException ex) {
-        log.warn("Conflict: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
-    }
-
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<String> handleDuplicateEmail(DuplicateEmailException ex) {
         log.warn("Duplicate email: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    // race на уникальном индексе при параллельных create/update
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<String> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("Data integrity violation: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("Resource already exists");
     }
 
     // ======================== Стандартные исключения Spring MVC ========================
