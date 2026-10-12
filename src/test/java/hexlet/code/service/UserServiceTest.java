@@ -406,6 +406,24 @@ class UserServiceTest {
         assertThat(json.has("updatedAt")).isFalse();
     }
 
+    @Test
+    void updateArrayBodyFails() {
+        assertThatThrownBy(() -> userService.update(1L, patch("[1,2,3]")))
+                .isInstanceOf(ValidationException.class)
+                .extracting(ex -> ((ValidationException) ex).getErrors())
+                .satisfies(errors -> assertThat(errors).containsKey("body"));
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void updateStringBodyFails() {
+        assertThatThrownBy(() -> userService.update(1L, patch("\"x\"")))
+                .isInstanceOf(ValidationException.class);
+
+        verify(userRepository, never()).save(any());
+    }
+
     // ============================ delete ============================
 
     @Test

@@ -40,4 +40,12 @@ class DataInitializerTest {
 
         assertThat(userRepository.count()).isEqualTo(before);
     }
+
+    @Test
+    void adminUsesDevelopmentDefaults() {
+        var admin = userRepository.findByEmail("hexlet@example.com").orElseThrow();
+        assertThat(passwordEncoder.matches("qwerty", admin.getPasswordDigest())).isTrue();
+        assertThat(admin.getFirstName()).isNull();
+        assertThat(admin.getLastName()).isNull();
+    }
 }
