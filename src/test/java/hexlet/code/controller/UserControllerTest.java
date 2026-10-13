@@ -506,7 +506,7 @@ class UserControllerTest {
 
     @Test
     void testPutNonExistentWithTokenForThatIdReturns404() throws Exception {
-        var token = authAsTokenForMissingId();
+        var token = authAsMissingUser();
 
         mockMvc.perform(
                         put(URL + "/999999")
@@ -640,7 +640,7 @@ class UserControllerTest {
 
     @Test
     void testDeleteNonExistent() throws Exception {
-        mockMvc.perform(delete(URL + "/999999").with(authAsAnonymous()))
+        mockMvc.perform(delete(URL + "/999999").with(authAsMissingUser()))
                 .andExpect(status().isNotFound());
     }
 
@@ -678,11 +678,7 @@ class UserControllerTest {
         return jwt().jwt(j -> j.subject(String.valueOf(user.getId())));
     }
 
-    private RequestPostProcessor authAsAnonymous() {
-        return jwt().jwt(j -> j.subject("999999"));
-    }
-
-    private RequestPostProcessor authAsTokenForMissingId() {
+    private RequestPostProcessor authAsMissingUser() {
         return jwt().jwt(j -> j.subject("999999"));
     }
 }
