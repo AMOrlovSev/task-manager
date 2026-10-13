@@ -427,8 +427,8 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ## CI/CD
 
-- CI — GitHub Actions: сборка фронтенда (`npm ci` + `npx build-frontend`),
-  сборка и тесты бэкенда, покрытие, анализ SonarQube.
+- CI — GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube.
+  Сборка фронтенда в CI не выполняется: тесты бэкенда статику не используют.
 - Деплой — Render (Docker, многостадийная сборка).
 - Качество — SonarCloud.
 
