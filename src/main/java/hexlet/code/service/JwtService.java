@@ -2,6 +2,7 @@ package hexlet.code.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -14,12 +15,12 @@ public class JwtService {
 
     public static final String ISSUER = "hexlet-task-manager";
 
-    private static final Duration TTL = Duration.ofHours(1);
-
     private final JwtEncoder jwtEncoder;
+    private final Duration ttl;
 
-    public JwtService(JwtEncoder jwtEncoder) {
+    public JwtService(JwtEncoder jwtEncoder, @Value("${app.jwt.ttl:PT1H}") Duration ttl) {
         this.jwtEncoder = jwtEncoder;
+        this.ttl = ttl;
     }
 
     public String generateToken(Long userId, String email) {
@@ -28,7 +29,7 @@ public class JwtService {
                 JwtClaimsSet.builder()
                         .issuer(JwtService.ISSUER)
                         .issuedAt(now)
-                        .expiresAt(now.plus(TTL))
+                        .expiresAt(now.plus(ttl))
                         .subject(String.valueOf(userId))
                         .claim("email", email)
                         .build();
