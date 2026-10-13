@@ -3,6 +3,7 @@ package hexlet.code.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -25,6 +26,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -162,7 +164,7 @@ class UserControllerTest {
     void testGetById() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
 
-        mockMvc.perform(get(URL + "/" + user.getId()))
+        mockMvc.perform(get(URL + "/" + user.getId()).with(authAs(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(user.getId()))
                 .andExpect(jsonPath("$.email").value("john@x.com"))
@@ -174,7 +176,9 @@ class UserControllerTest {
 
     @Test
     void testGetNonExistent() throws Exception {
-        mockMvc.perform(get(URL + "/999999")).andExpect(status().isNotFound());
+        var viewer = persistUser("viewer@x.com", "qwerty123", null, null);
+
+        mockMvc.perform(get(URL + "/999999").with(authAs(viewer))).andExpect(status().isNotFound());
     }
 
     @Test
@@ -182,9 +186,9 @@ class UserControllerTest {
         var before = userRepository.count();
 
         persistUser("a@x.com", "qwerty123", "A", "A");
-        persistUser("b@x.com", "qwerty123", "B", "B");
+        var auth = persistUser("b@x.com", "qwerty123", "B", "B");
 
-        mockMvc.perform(get(URL))
+        mockMvc.perform(get(URL).with(authAs(auth)))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Total-Count", String.valueOf(before + 2)))
                 .andExpect(jsonPath("$").isArray())
@@ -195,13 +199,19 @@ class UserControllerTest {
 
     @Test
     void testGetAllReturnsCurrentUsers() throws Exception {
+        var viewer = persistUser("viewer@x.com", "qwerty123", null, null);
         var before = userRepository.count();
 
-        mockMvc.perform(get(URL))
+        mockMvc.perform(get(URL).with(authAs(viewer)))
                 .andExpect(status().isOk())
                 .andExpect(header().string("X-Total-Count", String.valueOf(before)))
                 .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$.length()").value(before));
+    }
+
+    @Test
+    void testGetUsersWithoutTokenReturns401() throws Exception {
+        mockMvc.perform(get(URL)).andExpect(status().isUnauthorized());
     }
 
     // ============================ PUT ============================
@@ -216,6 +226,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -241,6 +252,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{}"))
                 .andExpect(status().isOk())
@@ -261,6 +273,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -280,6 +293,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -299,6 +313,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -316,6 +331,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -333,6 +349,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -350,6 +367,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -368,6 +386,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -385,6 +404,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -401,6 +421,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -418,6 +439,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -434,6 +456,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -451,6 +474,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -470,6 +494,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
                 .andExpect(status().isBadRequest());
@@ -480,9 +505,12 @@ class UserControllerTest {
     }
 
     @Test
-    void testPutNonExistent() throws Exception {
+    void testPutNonExistentReturns404WhenSubjectMatches() throws Exception {
+        var token = authAsAnonymous();
+
         mockMvc.perform(
                         put(URL + "/999999")
+                                .with(token)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -497,6 +525,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
@@ -519,6 +548,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("[1, 2, 3]"))
                 .andExpect(status().isBadRequest());
@@ -533,6 +563,7 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("\"x\""))
                 .andExpect(status().isBadRequest());
@@ -544,9 +575,55 @@ class UserControllerTest {
 
         mockMvc.perform(
                         put(URL + "/" + user.getId())
+                                .with(authAs(user))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("null"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testUpdateOtherReturns403() throws Exception {
+        var victim = persistUser("victim@x.com", "qwerty123", "V", "V");
+        var attacker = persistUser("attacker@x.com", "qwerty123", "A", "A");
+
+        mockMvc.perform(
+                        put(URL + "/" + victim.getId())
+                                .with(authAs(attacker))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "firstName": "Hacked" }"""))
+                .andExpect(status().isForbidden());
+
+        var after = userRepository.findById(victim.getId()).orElseThrow();
+        assertThat(after.getFirstName()).isEqualTo("V");
+    }
+
+    @Test
+    void testUpdateOthersNonExistentReturns403Not404() throws Exception {
+        var attacker = persistUser("attacker@x.com", "qwerty123", "A", "A");
+
+        mockMvc.perform(
+                        put(URL + "/999999")
+                                .with(authAs(attacker))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "firstName": "X" }"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void testPutWithoutTokenReturns401() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "firstName": "X" }"""))
+                .andExpect(status().isUnauthorized());
     }
 
     // ============================ DELETE ============================
@@ -555,13 +632,33 @@ class UserControllerTest {
     void testDelete() throws Exception {
         var user = persistUser("john@x.com", "qwerty123", null, null);
 
-        mockMvc.perform(delete(URL + "/" + user.getId())).andExpect(status().isNoContent());
-        mockMvc.perform(get(URL + "/" + user.getId())).andExpect(status().isNotFound());
+        mockMvc.perform(delete(URL + "/" + user.getId()).with(authAs(user)))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(get(URL + "/" + user.getId()).with(authAs(user)))
+                .andExpect(status().isNotFound());
     }
 
     @Test
     void testDeleteNonExistent() throws Exception {
         mockMvc.perform(delete(URL + "/999999")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void testDeleteOtherReturns403() throws Exception {
+        var victim = persistUser("victim@x.com", "qwerty123", "V", "V");
+        var attacker = persistUser("attacker@x.com", "qwerty123", "A", "A");
+
+        mockMvc.perform(delete(URL + "/" + victim.getId()).with(authAs(attacker)))
+                .andExpect(status().isForbidden());
+
+        assertThat(userRepository.findById(victim.getId())).isPresent();
+    }
+
+    @Test
+    void testDeleteWithoutTokenReturns401() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(delete(URL + "/" + user.getId())).andExpect(status().isUnauthorized());
     }
 
     // ============================ helpers ============================
@@ -574,5 +671,13 @@ class UserControllerTest {
         user.setLastName(lastName);
         user.setCreatedAt(LocalDateTime.now());
         return userRepository.save(user);
+    }
+
+    private RequestPostProcessor authAs(User user) {
+        return jwt().jwt(j -> j.subject(String.valueOf(user.getId())));
+    }
+
+    private RequestPostProcessor authAsAnonymous() {
+        return jwt().jwt(j -> j.subject("999999"));
     }
 }

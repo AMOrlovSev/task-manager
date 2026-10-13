@@ -57,21 +57,24 @@ class AuthControllerTest {
 
     @Test
     void wrongPasswordReturns401() throws Exception {
-        expectUnauthorized("""
+        expectUnauthorized(
+                """
                 { "username": "hexlet@example.com", "password": "wrong" }
                 """);
     }
 
     @Test
     void unknownEmailReturns401() throws Exception {
-        expectUnauthorized("""
+        expectUnauthorized(
+                """
                 { "username": "nobody@example.com", "password": "qwerty" }
                 """);
     }
 
     @Test
     void emptyFieldsReturn401() throws Exception {
-        expectUnauthorized("""
+        expectUnauthorized(
+                """
                 { "username": "", "password": "" }
                 """);
     }
@@ -84,15 +87,18 @@ class AuthControllerTest {
     @Test
     void all401ResponsesHaveIdenticalBody() throws Exception {
         var wrongPassword =
-                rawUnauthorized("""
+                rawUnauthorized(
+                        """
                         { "username": "hexlet@example.com", "password": "wrong" }
                         """);
         var unknownEmail =
-                rawUnauthorized("""
+                rawUnauthorized(
+                        """
                         { "username": "nobody@example.com", "password": "qwerty" }
                         """);
         var emptyFields =
-                rawUnauthorized("""
+                rawUnauthorized(
+                        """
                         { "username": "", "password": "" }
                         """);
         var emptyBody = rawUnauthorized("{}");
