@@ -34,7 +34,7 @@ dependencies {
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
 
 	// --- Безопасность ---
-	testImplementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test")
+	implementation("org.springframework.boot:spring-boot-starter-security-oauth2-resource-server")
 
 	// --- H2 (только для разработки) ---
 	runtimeOnly("com.h2database:h2")

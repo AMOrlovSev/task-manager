@@ -12,99 +12,132 @@ import org.junit.jupiter.api.Test;
 class PemKeyParserTest {
 
     @Test
-    void parsesPrivateKeyWithRealNewlines() throws Exception {
+    void parsesPemWithRealNewlines() throws Exception {
         var pair = generateRsaKeyPair();
-        String pem = toPem("PRIVATE KEY", pair.getPrivate().getEncoded());
+        String pem = toPem(pair);
 
-        var parsed = PemKeyParser.parsePrivateKey(pem);
+        KeyPair parsed = PemKeyParser.parse(pem);
 
-        assertThat(parsed).isNotNull();
-        assertThat(parsed.getAlgorithm()).isEqualTo("RSA");
+        assertThat(parsed.getPrivate()).isNotNull();
+        assertThat(parsed.getPublic()).isNotNull();
+        assertThat(parsed.getPrivate().getAlgorithm()).isEqualTo("RSA");
     }
 
     @Test
-    void parsesPrivateKeyWithEscapedNewlines() throws Exception {
+    void parsesPemWithEscapedNewlines() throws Exception {
         var pair = generateRsaKeyPair();
-        String pem = toPem("PRIVATE KEY", pair.getPrivate().getEncoded()).replace("\n", "\\n");
+        String pem = toPem(pair).replace("\n", "\\n");
 
-        var parsed = PemKeyParser.parsePrivateKey(pem);
+        KeyPair parsed = PemKeyParser.parse(pem);
 
-        assertThat(parsed).isNotNull();
+        assertThat(parsed.getPrivate()).isNotNull();
+        assertThat(parsed.getPublic()).isNotNull();
     }
 
     @Test
-    void parsesPublicKeyWithEscapedNewlines() throws Exception {
+    void parsesPemWithBlankLinesInside() throws Exception {
         var pair = generateRsaKeyPair();
-        String pem = toPem("PUBLIC KEY", pair.getPublic().getEncoded()).replace("\n", "\\n");
+        String pem = toPem(pair).replace("\n", "\n\n");
 
-        var parsed = PemKeyParser.parsePublicKey(pem);
+        KeyPair parsed = PemKeyParser.parse(pem);
 
-        assertThat(parsed).isNotNull();
-        assertThat(parsed.getAlgorithm()).isEqualTo("RSA");
+        assertThat(parsed.getPrivate()).isNotNull();
     }
 
     @Test
     void parsedKeysCanSignAndVerify() throws Exception {
         var pair = generateRsaKeyPair();
-        String privPem = toPem("PRIVATE KEY", pair.getPrivate().getEncoded());
-        String pubPem = toPem("PUBLIC KEY", pair.getPublic().getEncoded()).replace("\n", "\\n");
+        String pem = toPem(pair).replace("\n", "\\n");
 
-        var privateKey = PemKeyParser.parsePrivateKey(privPem);
-        var publicKey = PemKeyParser.parsePublicKey(pubPem);
+        KeyPair parsed = PemKeyParser.parse(pem);
 
         byte[] payload = "hello".getBytes();
         var signer = Signature.getInstance("SHA256withRSA");
-        signer.initSign(privateKey);
+        signer.initSign(parsed.getPrivate());
         signer.update(payload);
         byte[] sig = signer.sign();
 
         var verifier = Signature.getInstance("SHA256withRSA");
-        verifier.initVerify(publicKey);
+        verifier.initVerify(parsed.getPublic());
         verifier.update(payload);
 
         assertThat(verifier.verify(sig)).isTrue();
     }
 
     @Test
+    void parsedPublicKeyMatchesOriginal() throws Exception {
+        var pair = generateRsaKeyPair();
+        String pem = toPem(pair);
+
+        KeyPair parsed = PemKeyParser.parse(pem);
+
+        assertThat(parsed.getPublic().getEncoded()).isEqualTo(pair.getPublic().getEncoded());
+        assertThat(parsed.getPrivate().getEncoded()).isEqualTo(pair.getPrivate().getEncoded());
+    }
+
+    @Test
     void nullPemThrows() {
-        assertThatThrownBy(() -> PemKeyParser.parsePrivateKey(null))
+        assertThatThrownBy(() -> PemKeyParser.parse(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PEM");
     }
 
     @Test
-    void emptyPemThrows() {
-        assertThatThrownBy(() -> PemKeyParser.parsePrivateKey("   "))
-                .isInstanceOf(IllegalArgumentException.class);
+    void blankPemThrows() {
+        assertThatThrownBy(() -> PemKeyParser.parse("   "))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PEM");
+    }
+
+    @Test
+    void emptyStringPemThrows() {
+        assertThatThrownBy(() -> PemKeyParser.parse(""))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PEM");
     }
 
     @Test
     void missingHeaderThrows() {
-        assertThatThrownBy(() -> PemKeyParser.parsePrivateKey("just some text"))
+        assertThatThrownBy(() -> PemKeyParser.parse("just some text"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PRIVATE KEY");
     }
 
     @Test
     void invalidBase64Throws() {
-        var pem =
+        String pem =
                 """
                 -----BEGIN PRIVATE KEY-----
                 %%%not-base64%%%
                 -----END PRIVATE KEY-----
                 """;
 
-        assertThatThrownBy(() -> PemKeyParser.parsePrivateKey(pem))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> PemKeyParser.parse(pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Failed to parse PEM");
     }
 
     @Test
-    void wrongTypeHeaderThrows() {
-        var pair = generateRsaKeyPairQuiet();
-        String publicPem = toPem("PUBLIC KEY", pair.getPublic().getEncoded());
+    void garbageInsideHeadersThrows() {
+        String pem =
+                """
+                -----BEGIN PRIVATE KEY-----
+                aGVsbG8gd29ybGQ=
+                -----END PRIVATE KEY-----
+                """;
 
-        // Публичный PEM передан в parsePrivateKey — заголовок не тот
-        assertThatThrownBy(() -> PemKeyParser.parsePrivateKey(publicPem))
+        // base64 валиден ("hello world"), но это не PKCS8 RSA
+        assertThatThrownBy(() -> PemKeyParser.parse(pem))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Failed to parse PEM");
+    }
+
+    @Test
+    void publicKeyPemRejectedAsPrivateKey() throws Exception {
+        var pair = generateRsaKeyPair();
+        String publicPem = toPublicPem(pair);
+
+        assertThatThrownBy(() -> PemKeyParser.parse(publicPem))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PRIVATE KEY");
     }
@@ -117,16 +150,17 @@ class PemKeyParserTest {
         return gen.generateKeyPair();
     }
 
-    private static KeyPair generateRsaKeyPairQuiet() {
-        try {
-            return generateRsaKeyPair();
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+    private static String toPem(KeyPair pair) {
+        String base64 =
+                Base64.getMimeEncoder(64, "\n".getBytes())
+                        .encodeToString(pair.getPrivate().getEncoded());
+        return "-----BEGIN PRIVATE KEY-----\n" + base64 + "\n-----END PRIVATE KEY-----\n";
     }
 
-    private static String toPem(String type, byte[] der) {
-        String base64 = Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(der);
-        return "-----BEGIN " + type + "-----\n" + base64 + "\n-----END " + type + "-----\n";
+    private static String toPublicPem(KeyPair pair) {
+        String base64 =
+                Base64.getMimeEncoder(64, "\n".getBytes())
+                        .encodeToString(pair.getPublic().getEncoded());
+        return "-----BEGIN PUBLIC KEY-----\n" + base64 + "\n-----END PUBLIC KEY-----\n";
     }
 }

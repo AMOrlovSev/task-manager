@@ -1,7 +1,7 @@
 package hexlet.code.component;
 
 import hexlet.code.config.AdminProperties;
-import hexlet.code.dto.UserCreateDTO;
+import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.exception.DuplicateEmailException;
 import hexlet.code.service.UserService;
 import org.slf4j.Logger;

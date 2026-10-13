@@ -2,9 +2,9 @@ package hexlet.code.mapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import hexlet.code.dto.UserCreateDTO;
-import hexlet.code.dto.UserDTO;
-import hexlet.code.dto.UserUpdateDTO;
+import hexlet.code.dto.user.UserCreateDTO;
+import hexlet.code.dto.user.UserDTO;
+import hexlet.code.dto.user.UserUpdateDTO;
 import hexlet.code.model.User;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
