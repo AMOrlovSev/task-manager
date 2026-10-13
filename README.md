@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml)
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
+[![Coverage](https://sonarcloud.io/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
 
-Веб-приложение для управления задачами на Spring Boot.
+Веб-приложение для управления задачами на Spring Boot с SPA-фронтендом.
 
 **Демо:** https://task-manager-c4wi.onrender.com
 
@@ -28,22 +28,37 @@
 - SonarQube Cloud
 - GitHub Actions
 - Docker
+- Node.js 22 (сборка фронтенда)
+- Vite (сборщик SPA, приходит вместе с фронтенд-пакетом)
 
 ## Требования
 
 - JDK 21+
+- Node.js 22+ и npm
 - Docker — для запуска интеграционных тестов и сборки образа
 - Make (опционально, для удобства)
+- На Windows: Git Bash или WSL для запуска `make` и bash-скриптов npm
 
 ## Запуск
 
 ### Локально
 
+Собрать фронтенд и поднять приложение одной командой:
+
 ```bash
+make setup
 ./gradlew bootRun
 ```
 
-Приложение: http://localhost:8080/welcome
+Или по шагам:
+
+```bash
+npm ci
+npx build-frontend
+./gradlew bootRun
+```
+
+Приложение: http://localhost:8080/
 
 По умолчанию активируется профиль `development` — приложение стартует
 на in-memory **H2** (PostgreSQL compatibility mode), **Flyway** накатывает
@@ -60,11 +75,16 @@
 ### Через Make
 
 ```bash
-make run      # запуск
-make test     # тесты
-make lint     # проверка форматирования
-make format   # автоформатирование
+make frontend   # сборка SPA в src/main/resources/static
+make setup      # frontend + ./gradlew build
+make run        # запуск
+make test       # тесты
+make lint       # проверка форматирования
+make format     # автоформатирование
 ```
+
+`make` под Windows запускайте из **Git Bash** или **WSL**, не из PowerShell —
+цель `frontend` вызывает bash-скрипт `build-frontend` из npm-пакета.
 
 ### Docker
 
@@ -72,6 +92,9 @@ make format   # автоформатирование
 docker build -t task-manager .
 docker run --rm -p 8080:8080 task-manager
 ```
+
+Образ собирается в две стадии: `node:22-slim` собирает SPA, затем Gradle-стадия
+накладывает готовый бандл из `src/main/resources/static` поверх исходников.
 
 ## Профили
 
@@ -138,7 +161,8 @@ docker run --rm -p 8080:8080 \
 ## Аутентификация
 
 Все защищённые эндпоинты требуют заголовок `Authorization: Bearer <JWT>`.
-JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час.
+JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается через
+`app.jwt.ttl`, формат ISO-8601, напр. `30m`, `2h`).
 
 ### Получение токена
 
@@ -175,7 +199,7 @@ curl http://localhost:8080/api/users \
 | `iss` | `hexlet-task-manager` (константа `JwtService.ISSUER`) |
 | `sub` | id пользователя (строка) |
 | `iat` | время выпуска |
-| `exp` | `iat + 1 час` |
+| `exp` | `iat + TTL` (по умолчанию 1 час) |
 | `email` | email пользователя |
 
 `JwtDecoder` валидирует подпись, `exp` (с допуском 60 секунд) и `iss`.
@@ -247,6 +271,115 @@ public UserDTO update(...) { ... }
 — сначала проверяются права, потом ищется ресурс. Это предотвращает
 раскрытие информации о существовании объектов.
 
+## Фронтенд
+
+SPA на React, подключается как npm-пакет
+[`@hexlet/java-task-manager-frontend`](https://www.npmjs.com/package/@hexlet/java-task-manager-frontend).
+Исходников фронтенда в этом репозитории нет — есть только `package.json`
+и `package-lock.json`, которые фиксируют версию пакета. Весь код и сборка
+живут внутри пакета.
+
+### Как собрать
+
+Полная сборка бэкенда с фронтендом:
+
+```bash
+make setup
+```
+
+Цель `setup` делает две вещи: `make frontend` (собирает SPA) и
+`./gradlew build` (компилирует и тестирует Java-часть, используя уже
+готовую статику).
+
+Цель `frontend` под капотом — ровно две команды:
+
+```bash
+npm ci
+npx build-frontend
+```
+
+- `npm ci` ставит зависимости строго по `package-lock.json` (в отличие от
+  `npm install`, не обновляет lockfile и не разрешает новые версии).
+- `npx build-frontend` вызывает bash-скрипт из пакета, который запускает
+  Vite и кладёт результат в `src/main/resources/static/`.
+
+**Требуется bash.** Под Windows `make frontend` запускайте из Git Bash
+или WSL. Из PowerShell скрипт не отработает — там нет bash. Если `make`
+не установлен, выполните две команды напрямую в Git Bash.
+
+### Режим разработки
+
+Для активной работы над фронтендом есть dev-сервер Vite с горячей
+перезагрузкой и проксированием API-запросов на бэкенд:
+
+```bash
+# в одном терминале — backend
+./gradlew bootRun
+
+# в другом — dev-сервер фронтенда
+npx start-frontend
+```
+
+Dev-сервер поднимается на отдельном порту (обычно 5173) и проксирует
+все запросы `/api/**` на `http://localhost:8080`. Это значит, что
+SPA в браузере обращается к своему origin, а запросы до бэкенда доходят
+как если бы он был на том же порту. CORS-настройки не нужны.
+
+Почему это удобно: изменения в исходниках фронтенда подхватываются
+мгновенно без пересборки бандла. Продакшн-сборка (`make frontend`)
+делается редко — только перед `./gradlew build`, перед `docker build`
+или в CI.
+
+### Почему бандл не коммитится
+
+`src/main/resources/static/` в `.gitignore`. Причины:
+
+- это **артефакт**, а не исходник. Артефакты в репозитории — источник
+  конфликтов: каждый `make setup` перегенерирует файлы с новыми хешами
+  в именах (`index-a1b2c3.js`), и в диффах будет шум вместо полезных
+  изменений;
+- бандл весит сотни килобайт и раздувает репозиторий;
+- воспроизводимость: сборка должна получаться из `package-lock.json`
+  одной командой, а не подтягиваться из истории git;
+- в CI и Docker бандл собирается автоматически на стадии `node:22-slim`,
+  и локальный устаревший вариант там не нужен. В `.dockerignore` тоже
+  есть `src/main/resources/static`, чтобы старый бандл не попадал
+  в контекст сборки.
+
+### Где лежит токен
+
+JWT **не хранится на сервере**. После успешного `POST /api/login` фронтенд
+получает токен в теле ответа и сохраняет его **в `localStorage` браузера**.
+Каждый защищённый запрос SPA отправляет с заголовком
+`Authorization: Bearer <token>`, доставая токен из `localStorage`.
+
+Схема:
+
+1. Пользователь вводит email и пароль в форме логина.
+2. SPA делает `POST /api/login`, получает JWT строкой.
+3. Токен кладётся в `localStorage` — он переживает перезагрузку страницы,
+   но не синхронизируется между вкладками и не привязан к серверной сессии.
+4. При каждом `GET /api/users`, `PUT /api/users/{id}` и т.д. заголовок
+   `Authorization` подставляется автоматически (у фронтенд-пакета есть
+   для этого interceptor).
+5. Когда токен истекает (TTL 1 час), бэкенд отвечает `401`, и SPA
+   редиректит на страницу логина.
+
+Почему **localStorage**, а не `cookie`:
+
+- cookie отправляются браузером автоматически при каждом запросе на тот
+  же домен — это открывает CSRF-атаки. Для защиты пришлось бы
+  возвращать CSRF-токен.
+- localStorage читается только из JS на том же origin. Запросы с чужих
+  сайтов токен не увидят и не подставят.
+- на бэкенде поэтому `csrf.disable()` — классический CSRF-вектор
+  отсутствует по построению.
+
+Обратная сторона: localStorage уязвим для XSS (если злоумышленник
+выполнит свой JS на странице, он прочитает токен). Это общий компромисс
+JWT-в-SPA: выбираем между XSS и CSRF. Для учебного проекта локального
+риска XSS нет, для продакшена правильнее HttpOnly cookie + CSRF-токен.
+
 ## Миграции (Flyway)
 
 SQL-миграции лежат в `src/main/resources/db/migration/` и накатываются
@@ -294,8 +427,9 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ## CI/CD
 
-- CI — GitHub Actions: сборка, тесты, покрытие, анализ SonarQube.
-- Деплой — Render (Docker).
+- CI — GitHub Actions: сборка фронтенда (`npm ci` + `npx build-frontend`),
+  сборка и тесты бэкенда, покрытие, анализ SonarQube.
+- Деплой — Render (Docker, многостадийная сборка).
 - Качество — SonarCloud.
 
 ## API
@@ -305,6 +439,8 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 | Метод | Путь | Тело запроса | Успешный ответ | Auth | Описание |
 |---|---|---|---|---|---|
+| `GET` | `/` | — | `200` HTML (SPA) | — | SPA-страница |
+| `GET` | `/assets/**` | — | `200` JS/CSS | — | Статика SPA |
 | `GET` | `/welcome` | — | `200` text | — | Приветствие |
 | `GET` | `/actuator/health` | — | `200` JSON | — | Статус приложения |
 | `POST` | `/api/login` | JSON | `200` text (JWT) | — | Аутентификация, возвращает JWT |
