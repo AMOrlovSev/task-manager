@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.nimbusds.jose.jwk.JWKSet;
@@ -14,11 +15,13 @@ import hexlet.code.TestcontainersConfig;
 import hexlet.code.model.User;
 import hexlet.code.repository.UserRepository;
 import hexlet.code.service.JwtService;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
+import java.util.Base64;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -90,6 +93,48 @@ class SecurityTest {
     void expiredTokenReturns401() throws Exception {
         var user = persistUser("u@x.com", "qwerty123");
         var token = expiredToken(user);
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void tokenWithWrongIssuerReturns401() throws Exception {
+        var user = persistUser("u@x.com", "qwerty123");
+        var now = Instant.now();
+
+        var token =
+                jwtEncoder
+                        .encode(
+                                JwtEncoderParameters.from(
+                                        JwtClaimsSet.builder()
+                                                .issuer("evil-issuer")
+                                                .subject(String.valueOf(user.getId()))
+                                                .issuedAt(now)
+                                                .expiresAt(now.plusSeconds(3600))
+                                                .build()))
+                        .getTokenValue();
+
+        mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unsignedTokenWithAlgNoneReturns401() throws Exception {
+        var user = persistUser("u@x.com", "qwerty123");
+        var now = Instant.now();
+
+        var headerJson = "{\"alg\":\"none\",\"typ\":\"JWT\"}";
+        var payloadJson =
+                String.format(
+                        "{\"iss\":\"hexlet-task-manager\",\"sub\":\"%d\",\"iat\":%d,\"exp\":%d}",
+                        user.getId(), now.getEpochSecond(), now.plusSeconds(3600).getEpochSecond());
+
+        var encoder = Base64.getUrlEncoder().withoutPadding();
+        var header = encoder.encodeToString(headerJson.getBytes(StandardCharsets.UTF_8));
+        var payload = encoder.encodeToString(payloadJson.getBytes(StandardCharsets.UTF_8));
+
+        var token = header + "." + payload + ".";
 
         mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
@@ -216,23 +261,33 @@ class SecurityTest {
 
     @Test
     void loginThenListUsersWithReturnedToken() throws Exception {
-        var token =
-                mockMvc.perform(
-                                post("/api/login")
-                                        .contentType(MediaType.APPLICATION_JSON)
-                                        .content(
-                                                """
-                                { "username": "hexlet@example.com", "password": "qwerty" }
-                                """))
-                        .andExpect(status().isOk())
-                        .andReturn()
-                        .getResponse()
-                        .getContentAsString();
+        var token = login("hexlet@example.com", "qwerty");
 
         assertThat(token).contains(".");
 
         mockMvc.perform(get("/api/users").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void loginThenUpdateAndDeleteSelfWithRealToken() throws Exception {
+        var admin = userRepository.findByEmail("hexlet@example.com").orElseThrow();
+        var token = login("hexlet@example.com", "qwerty");
+
+        mockMvc.perform(
+                        put("/api/users/" + admin.getId())
+                                .header("Authorization", "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "firstName": "Updated" }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Updated"));
+
+        mockMvc.perform(
+                        delete("/api/users/" + admin.getId())
+                                .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
     }
 
     // ============================ helpers ============================
@@ -257,6 +312,21 @@ class SecurityTest {
         return jwtEncoder
                 .encode(JwtEncoderParameters.from(claims(user, past, past.plusSeconds(3600))))
                 .getTokenValue();
+    }
+
+    private String login(String username, String password) throws Exception {
+        return mockMvc.perform(
+                        post("/api/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "username": "%s", "password": "%s" }
+                                """
+                                                .formatted(username, password)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
     }
 
     private String signWithForeignKey(User user) throws Exception {
