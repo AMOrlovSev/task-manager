@@ -176,6 +176,18 @@ class SecurityTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void rootWithoutTokenIsNotUnauthorized() throws Exception {
+        var status = mockMvc.perform(get("/")).andReturn().getResponse().getStatus();
+        assertThat(status).isNotEqualTo(401);
+    }
+
+    @Test
+    void assetsWithoutTokenIsNotUnauthorized() throws Exception {
+        var status = mockMvc.perform(get("/assets/x.js")).andReturn().getResponse().getStatus();
+        assertThat(status).isNotEqualTo(401);
+    }
+
     // ============================ авторизованный доступ ============================
 
     @Test
