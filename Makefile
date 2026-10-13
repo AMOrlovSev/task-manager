@@ -4,7 +4,7 @@ frontend:
 	npm ci
 	npx build-frontend
 
-setup:
+setup: frontend
 	./gradlew build
 
 build:
@@ -22,4 +22,4 @@ format:
 lint:
 	./gradlew spotlessCheck
 
-.PHONY: setup build run test format lint
+.PHONY: frontend setup build run test format lint
