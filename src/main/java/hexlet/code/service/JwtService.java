@@ -26,7 +26,7 @@ public class JwtService {
         var now = Instant.now();
         var claims =
                 JwtClaimsSet.builder()
-                        .issuer(ISSUER)
+                        .issuer(JwtService.ISSUER)
                         .issuedAt(now)
                         .expiresAt(now.plus(TTL))
                         .subject(String.valueOf(userId))

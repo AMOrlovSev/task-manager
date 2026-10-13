@@ -640,7 +640,8 @@ class UserControllerTest {
 
     @Test
     void testDeleteNonExistent() throws Exception {
-        mockMvc.perform(delete(URL + "/999999")).andExpect(status().isNotFound());
+        mockMvc.perform(delete(URL + "/999999").with(authAsAnonymous()))
+                .andExpect(status().isNotFound());
     }
 
     @Test

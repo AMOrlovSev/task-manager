@@ -13,6 +13,7 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import hexlet.code.TestcontainersConfig;
 import hexlet.code.model.User;
 import hexlet.code.repository.UserRepository;
+import hexlet.code.service.JwtService;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -244,15 +245,17 @@ class SecurityTest {
     }
 
     private String validToken(User user) {
+        var now = Instant.now();
         return jwtEncoder
-                .encode(JwtEncoderParameters.from(claims(user, Instant.now().plusSeconds(3600))))
+                .encode(JwtEncoderParameters.from(claims(user, now, now.plusSeconds(3600))))
                 .getTokenValue();
     }
 
     private String expiredToken(User user) {
-        // 2 часа назад, далеко за пределами 60-секундного допуска Nimbus
+        // iat = now - 2h, exp = iat + 1h => exp < now, far past 60s skew of Nimbus
+        var past = Instant.now().minusSeconds(7200);
         return jwtEncoder
-                .encode(JwtEncoderParameters.from(claims(user, Instant.now().minusSeconds(7200))))
+                .encode(JwtEncoderParameters.from(claims(user, past, past.plusSeconds(3600))))
                 .getTokenValue();
     }
 
@@ -263,15 +266,18 @@ class SecurityTest {
                         .privateKey((RSAPrivateKey) pair.getPrivate())
                         .build();
         var encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
-        return encoder.encode(
-                        JwtEncoderParameters.from(claims(user, Instant.now().plusSeconds(3600))))
+
+        var now = Instant.now();
+        return encoder
+                .encode(JwtEncoderParameters.from(claims(user, now, now.plusSeconds(3600))))
                 .getTokenValue();
     }
 
-    private JwtClaimsSet claims(User user, Instant expiresAt) {
+    private JwtClaimsSet claims(User user, Instant issuedAt, Instant expiresAt) {
         return JwtClaimsSet.builder()
+                .issuer(JwtService.ISSUER)
                 .subject(String.valueOf(user.getId()))
-                .issuedAt(Instant.now().minusSeconds(60))
+                .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .build();
     }
