@@ -1,4 +1,4 @@
-package hexlet.code.dto;
+package hexlet.code.dto.user;
 
 import java.time.LocalDate;
 

@@ -16,3 +16,5 @@ app:
   admin:
     email: ${ADMIN_EMAIL}
     password: ${ADMIN_PASSWORD}
+  jwt:
+    private-key: ${JWT_PRIVATE_KEY}
