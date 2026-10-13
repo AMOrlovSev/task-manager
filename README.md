@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml)
 [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
-[![Coverage](https://sonarcloud.io/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
 
 Веб-приложение для управления задачами на Spring Boot с SPA-фронтендом.
 
@@ -161,8 +161,8 @@ docker run --rm -p 8080:8080 \
 ## Аутентификация
 
 Все защищённые эндпоинты требуют заголовок `Authorization: Bearer <JWT>`.
-JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается через
-`app.jwt.ttl`, формат ISO-8601, напр. `30m`, `2h`).
+JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается через `app.jwt.ttl`, короткий формат Spring
+или ISO-8601, напр. `30m`, `2h` или `PT30M`).
 
 ### Получение токена
 
@@ -350,19 +350,21 @@ SPA в браузере обращается к своему origin, а запр
 
 JWT **не хранится на сервере**. После успешного `POST /api/login` фронтенд
 получает токен в теле ответа и сохраняет его **в `localStorage` браузера**.
-Каждый защищённый запрос SPA отправляет с заголовком
-`Authorization: Bearer <token>`, доставая токен из `localStorage`.
+Заголовок `Authorization: Bearer <token>` ставит собственный `httpClient`
+в `dataProvider.ts` пакета `@hexlet/java-task-manager-frontend` — axios-
+interceptor там не используется.
 
 Схема:
 
 1. Пользователь вводит email и пароль в форме логина.
 2. SPA делает `POST /api/login`, получает JWT строкой.
-3. Токен кладётся в `localStorage` — он переживает перезагрузку страницы,
-   но не синхронизируется между вкладками и не привязан к серверной сессии.
-4. При каждом `GET /api/users`, `PUT /api/users/{id}` и т.д. заголовок
-   `Authorization` подставляется автоматически (у фронтенд-пакета есть
-   для этого interceptor).
-5. Когда токен истекает (TTL 1 час), бэкенд отвечает `401`, и SPA
+3. Токен кладётся в `localStorage` вместе с **логином и паролем
+   в открытом виде** под ключом `user` — это известный компромисс
+   учебного пакета, а не рекомендация для прода. В реальном продукте
+   так делать нельзя: любой XSS прочитает и токен, и пароль.
+4. При каждом защищённом запросе `httpClient` из `dataProvider.ts`
+   подставляет заголовок `Authorization`.
+5. Когда токен истекает (TTL 1 час), бэкенд отвечает `401`, SPA
    редиректит на страницу логина.
 
 Почему **localStorage**, а не `cookie`:
@@ -375,10 +377,9 @@ JWT **не хранится на сервере**. После успешного
 - на бэкенде поэтому `csrf.disable()` — классический CSRF-вектор
   отсутствует по построению.
 
-Обратная сторона: localStorage уязвим для XSS (если злоумышленник
-выполнит свой JS на странице, он прочитает токен). Это общий компромисс
-JWT-в-SPA: выбираем между XSS и CSRF. Для учебного проекта локального
-риска XSS нет, для продакшена правильнее HttpOnly cookie + CSRF-токен.
+Обратная сторона: localStorage уязвим для XSS. Для продакшена правильнее
+HttpOnly cookie + CSRF-токен — тогда пароль в открытом виде не хранится
+на клиенте вообще.
 
 ## Миграции (Flyway)
 
@@ -427,8 +428,8 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ## CI/CD
 
-- CI — GitHub Actions: сборка фронтенда (`npm ci` + `npx build-frontend`),
-  сборка и тесты бэкенда, покрытие, анализ SonarQube.
+- CI — GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube.
+  Сборка фронтенда в CI не выполняется: тесты бэкенда статику не используют.
 - Деплой — Render (Docker, многостадийная сборка).
 - Качество — SonarCloud.
 

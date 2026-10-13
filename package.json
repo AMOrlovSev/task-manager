@@ -1,24 +1,7 @@
 {
   "name": "task-manager",
   "version": "1.0.0",
-  "description": "[![CI](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml)\r [![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)\r [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/AMOrlovSev/task-manager.git"
-  },
-  "keywords": [],
-  "author": "",
   "private": true,
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/AMOrlovSev/task-manager/issues"
-  },
-  "homepage": "https://github.com/AMOrlovSev/task-manager#readme",
   "dependencies": {
     "@hexlet/java-task-manager-frontend": "^1.0.26"
   }
