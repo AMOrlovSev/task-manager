@@ -1,3 +1,10 @@
+# ---- Stage 0: frontend ----
+FROM node:22-slim AS frontend
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+RUN npx build-frontend
+
 # ---- Stage 1: build ----
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /workspace
@@ -12,6 +19,7 @@ RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
 
 # Теперь копируем исходники
 COPY src src
+COPY --from=frontend /app/src/main/resources/static src/main/resources/static
 
 # Собираем исполняемый JAR без тестов
 RUN ./gradlew --no-daemon bootJar -x test

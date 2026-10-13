@@ -1,5 +1,9 @@
 .DEFAULT_GOAL := build
 
+frontend:
+	npm ci
+	npx build-frontend
+
 setup:
 	./gradlew build
 

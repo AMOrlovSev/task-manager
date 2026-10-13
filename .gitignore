@@ -2,6 +2,7 @@
 *.pem
 node_modules/
 application-local.yml
+src/main/resources/static/
 
 HELP.md
 .gradle
