@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
-    "@hexlet/java-task-manager-frontend": "^1.0.0"
+    "@hexlet/java-task-manager-frontend": "^1.0.26"
   }
 }
