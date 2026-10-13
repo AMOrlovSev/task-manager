@@ -268,8 +268,7 @@ class SecurityTest {
         var encoder = new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(jwk)));
 
         var now = Instant.now();
-        return encoder
-                .encode(JwtEncoderParameters.from(claims(user, now, now.plusSeconds(3600))))
+        return encoder.encode(JwtEncoderParameters.from(claims(user, now, now.plusSeconds(3600))))
                 .getTokenValue();
     }
 

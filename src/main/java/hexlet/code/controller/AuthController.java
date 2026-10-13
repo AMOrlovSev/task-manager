@@ -1,6 +1,6 @@
 package hexlet.code.controller;
 
-import hexlet.code.dto.AuthRequest;
+import hexlet.code.dto.auth.AuthRequest;
 import hexlet.code.service.AuthService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
