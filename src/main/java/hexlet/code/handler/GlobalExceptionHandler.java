@@ -1,6 +1,8 @@
 package hexlet.code.handler;
 
 import hexlet.code.exception.DuplicateEmailException;
+import hexlet.code.exception.DuplicateNameException;
+import hexlet.code.exception.DuplicateSlugException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import java.util.HashMap;
@@ -61,6 +63,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<String> handleDuplicateEmail(DuplicateEmailException ex) {
         log.warn("Duplicate email: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateSlugException.class)
+    public ResponseEntity<String> handleDuplicateSlug(DuplicateSlugException ex) {
+        log.warn("Duplicate slug: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateNameException.class)
+    public ResponseEntity<String> handleDuplicateName(DuplicateNameException ex) {
+        log.warn("Duplicate name: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
