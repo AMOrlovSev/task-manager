@@ -1,8 +1,6 @@
 package hexlet.code.handler;
 
-import hexlet.code.exception.DuplicateEmailException;
-import hexlet.code.exception.DuplicateNameException;
-import hexlet.code.exception.DuplicateSlugException;
+import hexlet.code.exception.DuplicateResourceException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import java.util.HashMap;
@@ -60,21 +58,9 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(ex.getErrors());
     }
 
-    @ExceptionHandler(DuplicateEmailException.class)
-    public ResponseEntity<String> handleDuplicateEmail(DuplicateEmailException ex) {
-        log.warn("Duplicate email: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
-    }
-
-    @ExceptionHandler(DuplicateSlugException.class)
-    public ResponseEntity<String> handleDuplicateSlug(DuplicateSlugException ex) {
-        log.warn("Duplicate slug: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
-    }
-
-    @ExceptionHandler(DuplicateNameException.class)
-    public ResponseEntity<String> handleDuplicateName(DuplicateNameException ex) {
-        log.warn("Duplicate name: {}", ex.getMessage());
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<String> handleDuplicate(DuplicateResourceException ex) {
+        log.warn("Duplicate resource: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 

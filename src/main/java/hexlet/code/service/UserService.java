@@ -1,5 +1,6 @@
 package hexlet.code.service;
 
+import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
 import hexlet.code.dto.user.UserUpdateDTO;
@@ -9,17 +10,12 @@ import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.UserMapper;
 import hexlet.code.model.User;
 import hexlet.code.repository.UserRepository;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,20 +24,17 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
-    private final JsonMapper jsonMapper;
-    private final Validator validator;
+    private final PatchSupport patchSupport;
 
     public UserService(
             UserRepository userRepository,
             UserMapper userMapper,
             PasswordEncoder passwordEncoder,
-            JsonMapper jsonMapper,
-            Validator validator) {
+            PatchSupport patchSupport) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
-        this.jsonMapper = jsonMapper;
-        this.validator = validator;
+        this.patchSupport = patchSupport;
     }
 
     public List<UserDTO> findAll() {
@@ -69,31 +62,16 @@ public class UserService {
 
     @Transactional
     public UserDTO update(Long id, JsonNode patchNode) {
-        if (patchNode == null || !patchNode.isObject()) {
-            throw new ValidationException(Map.of("body", "Patch body must be a JSON object"));
-        }
+        patchSupport.requireObject(patchNode);
         User user = getUserOrThrow(id);
 
-        JsonNode currentJson = jsonMapper.valueToTree(userMapper.toUpdateDto(user));
-        JsonNode patchedJson = jsonMapper.updateValue(currentJson, patchNode);
-        UserUpdateDTO dto = jsonMapper.treeToValue(patchedJson, UserUpdateDTO.class);
+        UserUpdateDTO dto =
+                patchSupport.apply(userMapper.toUpdateDto(user), patchNode, UserUpdateDTO.class);
 
-        // Bean Validation: @NotBlank email, @Email email, @Size password
-        Set<ConstraintViolation<UserUpdateDTO>> violations = validator.validate(dto);
-        if (!violations.isEmpty()) {
-            Map<String, String> errors = new HashMap<>();
-            for (ConstraintViolation<UserUpdateDTO> v : violations) {
-                errors.put(v.getPropertyPath().toString(), v.getMessage());
-            }
-            throw new ValidationException(errors);
-        }
-
-        // Явный null для password → 400 (у email это уже сделал @NotBlank)
         if (patchNode.has("password") && patchNode.get("password").isNull()) {
             throw new ValidationException(Map.of("password", "Password is required"));
         }
 
-        // Email: проверка дубликата + нормализация
         if (dto.getEmail() != null) {
             String normalized = normalize(dto.getEmail());
             if (!normalized.equals(user.getEmail()) && userRepository.existsByEmail(normalized)) {
@@ -103,14 +81,11 @@ public class UserService {
             user.setEmail(normalized);
         }
 
-        // Пароль: обновляем digest только если поле пришло
         if (dto.getPassword() != null) {
             user.setPasswordDigest(passwordEncoder.encode(dto.getPassword()));
         }
 
-        // firstName / lastName — маппер, включая null
         userMapper.update(dto, user);
-
         return userMapper.toDto(userRepository.save(user));
     }
 

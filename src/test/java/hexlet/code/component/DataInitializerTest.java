@@ -8,6 +8,7 @@ import hexlet.code.config.AdminProperties;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.DefaultApplicationArguments;
@@ -24,6 +25,17 @@ class DataInitializerTest {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private DataInitializer initializer;
     @Autowired private AdminProperties adminProperties;
+
+    @AfterEach
+    void restoreRenamedStatus() {
+        taskStatusRepository
+                .findBySlug("custom-draft")
+                .ifPresent(
+                        status -> {
+                            status.setSlug("draft");
+                            taskStatusRepository.saveAndFlush(status);
+                        });
+    }
 
     @Test
     void adminIsCreatedOnStartup() {
@@ -62,6 +74,20 @@ class DataInitializerTest {
 
     @Test
     void secondRunDoesNotDuplicateTaskStatuses() {
+        var before = taskStatusRepository.count();
+
+        assertThatCode(() -> initializer.run(new DefaultApplicationArguments()))
+                .doesNotThrowAnyException();
+
+        assertThat(taskStatusRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void renamedSlugDoesNotBreakStartup() {
+        var draft = taskStatusRepository.findBySlug("draft").orElseThrow();
+        draft.setSlug("custom-draft");
+        taskStatusRepository.save(draft);
+
         var before = taskStatusRepository.count();
 
         assertThatCode(() -> initializer.run(new DefaultApplicationArguments()))

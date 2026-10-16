@@ -215,10 +215,6 @@ class UserControllerTest {
     }
 
     // ============================ PUT ============================
-    // Правила:
-    //   email:    отсутствует → не менять | null → 400 | значение → нормализовать
-    //   password: отсутствует → не менять | null → 400 | значение → перекодировать
-    //   firstName/lastName: отсутствует → не менять | null → очистить | значение → заменить
 
     @Test
     void testPutEmailAndPasswordKeepsNames() throws Exception {
@@ -624,6 +620,23 @@ class UserControllerTest {
                                         """
                                 { "firstName": "X" }"""))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void testPutNestedObjectReturns400() throws Exception {
+        var user = persistUser("john@x.com", "qwerty123", "John", "Doe");
+
+        mockMvc.perform(
+                        put(URL + "/" + user.getId())
+                                .with(authAs(user))
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "email": { "a": 1 } }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = userRepository.findById(user.getId()).orElseThrow();
+        assertThat(after.getEmail()).isEqualTo("john@x.com");
     }
 
     // ============================ DELETE ============================

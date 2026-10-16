@@ -429,6 +429,23 @@ class TaskStatusControllerTest {
                 .andExpect(jsonPath("$.slug").value("renamed"));
     }
 
+    @Test
+    void testPutNestedObjectReturns400() throws Exception {
+        var status = persist("NestedType", "nested-type");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                { "name": { "a": 1 } }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = repository.findById(status.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("NestedType");
+    }
+
     // ============================ DELETE ============================
 
     @Test

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
 import hexlet.code.dto.user.UserUpdateDTO;
@@ -58,7 +59,11 @@ class UserServiceTest {
         validator = Validation.buildDefaultValidatorFactory().getValidator();
 
         userService =
-                new UserService(userRepository, userMapper, passwordEncoder, jsonMapper, validator);
+                new UserService(
+                        userRepository,
+                        userMapper,
+                        passwordEncoder,
+                        new PatchSupport(jsonMapper, validator));
     }
 
     // ============================ findAll ============================

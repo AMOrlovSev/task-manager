@@ -56,7 +56,8 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     private void createIfMissing(TaskStatusCreateDTO dto) {
-        if (taskStatusRepository.existsBySlug(dto.slug())) {
+        if (taskStatusRepository.existsBySlug(dto.slug())
+                || taskStatusRepository.existsByName(dto.name())) {
             log.info("TaskStatus already exists, skipping: {}", dto.slug());
             return;
         }
