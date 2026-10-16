@@ -1,9 +1,3 @@
-# Task Manager
-
-[![CI](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml)
-[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
-
 Веб-приложение для управления задачами на Spring Boot с SPA-фронтендом.
 
 **Демо:** https://task-manager-c4wi.onrender.com
@@ -67,10 +61,10 @@ npx build-frontend
 **H2 Console** доступна по адресу http://localhost:8080/h2-console
 (JDBC URL — как в `application-development.yml`, логин `sa`, пароль пустой).
 
-При старте создаётся администратор из `app.admin.*` (см. раздел
-«Администратор по умолчанию»). JWT-ключи для профиля `development`
-генерируются эфемерно при каждом запуске — это нормально для локальной
-разработки.
+При старте создаётся администратор из `app.admin.*` и дефолтные статусы
+задач (см. разделы «Администратор по умолчанию» и «Статусы задач»).
+JWT-ключи для профиля `development` генерируются эфемерно при каждом
+запуске — это нормально для локальной разработки.
 
 ### Через Make
 
@@ -161,8 +155,9 @@ docker run --rm -p 8080:8080 \
 ## Аутентификация
 
 Все защищённые эндпоинты требуют заголовок `Authorization: Bearer <JWT>`.
-JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается через `app.jwt.ttl`, короткий формат Spring
-или ISO-8601, напр. `30m`, `2h` или `PT30M`).
+JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается
+через `app.jwt.ttl`, короткий формат Spring или ISO-8601, напр. `30m`,
+`2h` или `PT30M`).
 
 ### Получение токена
 
@@ -270,6 +265,64 @@ public UserDTO update(...) { ... }
 `PUT /api/users/999999` (несуществующий id) возвращает `403`, а не `404`
 — сначала проверяются права, потом ищется ресурс. Это предотвращает
 раскрытие информации о существовании объектов.
+
+Статусы задач (`/api/task_statuses/**`) читают все, включая анонимных
+клиентов — GET открыт. Создание, изменение и удаление требуют Bearer
+токена. Специальных прав «только владелец» у статусов нет: их может
+менять любой аутентифицированный пользователь.
+
+## Статусы задач
+
+Каждая задача в таск-менеджере имеет статус: новый, в работе,
+на тестировании, завершён. Статус описывается сущностью `TaskStatus`
+с полями `name`, `slug` и `createdAt`. `name` и `slug` уникальны,
+оба обязательны, минимум один символ. `createdAt` проставляется
+автоматически через `@CreatedDate`.
+
+### Дефолтные статусы
+
+`DataInitializer` создаёт при старте пять статусов, если их ещё нет:
+
+| name | slug |
+|---|---|
+| Draft | `draft` |
+| ToReview | `to_review` |
+| ToBeFixed | `to_be_fixed` |
+| ToPublish | `to_publish` |
+| Published | `published` |
+
+Инициализация идемпотентна: при существующем `slug` или `name`
+`DuplicateSlugException` / `DuplicateNameException` перехватывается
+и логируется, повторный запуск не падает.
+
+### Модель статуса
+
+```json
+{
+  "id": 2,
+  "name": "ToReview",
+  "slug": "to_review",
+  "createdAt": "2026-10-30"
+}
+```
+
+### Получение по слагу
+
+В репозитории есть метод `findBySlug`. Слаг уникален, поэтому это
+однозначный идентификатор статуса — на его основе можно строить
+человекочитаемые URL (например, `/statuses/to_review`).
+
+### Обновление статуса
+
+Тот же merge-patch, что и у пользователей: в теле `PUT /api/task_statuses/{id}`
+передаётся любое подмножество полей. Отсутствующие не трогаются,
+пустые строки валидацию не проходят (`@Size(min = 1)`), дубликаты
+`name`/`slug` возвращают `409`.
+
+| Поле | Отсутствует | Пустая строка | Значение |
+|---|---|---|---|
+| `name` | не менять | `400` | заменяется, при дубликате → `409` |
+| `slug` | не менять | `400` | заменяется, при дубликате → `409` |
 
 ## Фронтенд
 
@@ -386,6 +439,14 @@ HttpOnly cookie + CSRF-токен — тогда пароль в открыто�
 SQL-миграции лежат в `src/main/resources/db/migration/` и накатываются
 автоматически при старте приложения. Именование: `V<n>__<description>.sql`.
 
+Текущие миграции:
+
+- `V1__create_users.sql` — таблица `users`
+- `V2__make_user_names_nullable.sql` — снимает `not null` с `first_name`
+  и `last_name`
+- `V3__create_task_statuses.sql` — таблица `task_statuses` с уникальными
+  индексами на `name` и `slug`
+
 Схемой управляет Flyway, Hibernate работает в режиме `validate` —
 если маппинг сущностей разойдётся с миграциями, приложение не стартует.
 
@@ -398,7 +459,8 @@ SQL-миграции лежат в `src/main/resources/db/migration/` и нак�
 ```
 
 Интеграционные тесты (`UserRepositoryTest`, `UserControllerTest`,
-`SecurityTest`, `AuthControllerTest` и другие) используют Testcontainers:
+`SecurityTest`, `AuthControllerTest`, `TaskStatusControllerTest`,
+`TaskStatusRepositoryTest` и другие) используют Testcontainers:
 поднимают реальный PostgreSQL в Docker-контейнере, накатывают
 Flyway-миграции и работают с настоящей БД.
 
@@ -409,8 +471,9 @@ Flyway-миграции и работают с настоящей БД.
 поэтому интеграционные тесты проходят без дополнительной настройки.
 
 Срезовые тесты (`AppApplicationTests`, `WelcomeControllerTest`,
-`PemKeyParserTest`, `UserServiceTest`, `UserMapperTest`) идут на H2 или
-вообще без Spring-контекста и Docker не требуют.
+`PemKeyParserTest`, `UserServiceTest`, `UserMapperTest`,
+`TaskStatusServiceTest`, `TaskStatusMapperTest`) идут на H2 или вообще
+без Spring-контекста и Docker не требуют.
 
 ### Покрытие (JaCoCo)
 
@@ -428,15 +491,19 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ## CI/CD
 
-- CI — GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube.
-  Сборка фронтенда в CI не выполняется: тесты бэкенда статику не используют.
+- CI — GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube,
+  проверка `docker build` (Dockerfile двухстадийный, стадия `node:22-slim`
+  собирает фронтенд; проверка ловит поломку стадии на PR, а не на Render).
+  Сборка фронтенда отдельным шагом в CI не выполняется: тесты бэкенда
+  статику не используют.
 - Деплой — Render (Docker, многостадийная сборка).
 - Качество — SonarCloud.
 
 ## API
 
-Базовый путь для пользователей — `/api/users`. Защищённые эндпоинты
-требуют заголовок `Authorization: Bearer <JWT>`.
+Базовый путь для пользователей — `/api/users`, для статусов задач —
+`/api/task_statuses`. Защищённые эндпоинты требуют заголовок
+`Authorization: Bearer <JWT>`.
 
 | Метод | Путь | Тело запроса | Успешный ответ | Auth | Описание |
 |---|---|---|---|---|---|
@@ -450,6 +517,11 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 | `POST` | `/api/users` | JSON | `201` JSON, заголовок `Location` | — | Регистрация |
 | `PUT` | `/api/users/{id}` | JSON | `200` JSON | Bearer + owner | Частичное обновление (merge patch) |
 | `DELETE` | `/api/users/{id}` | — | `204` | Bearer + owner | Удаление пользователя |
+| `GET` | `/api/task_statuses` | — | `200` JSON-массив, заголовок `X-Total-Count` | — | Список статусов |
+| `GET` | `/api/task_statuses/{id}` | — | `200` JSON | — | Статус по id |
+| `POST` | `/api/task_statuses` | JSON | `201` JSON, заголовок `Location` | Bearer | Создание статуса |
+| `PUT` | `/api/task_statuses/{id}` | JSON | `200` JSON | Bearer | Частичное обновление (merge patch) |
+| `DELETE` | `/api/task_statuses/{id}` | — | `204` | Bearer | Удаление статуса |
 
 `owner` = `sub` токена должен совпадать с `id` в пути.
 
@@ -479,7 +551,7 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 `firstName` и `lastName` — nullable. `passwordDigest` в ответах
 никогда не возвращается.
 
-### Создание (`POST /api/users`)
+### Создание пользователя (`POST /api/users`)
 
 Тело:
 
@@ -495,7 +567,7 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 Валидация: `email` обязателен и валиден, `password` минимум 3 символа.
 Email нормализуется (trim + lower case). Дубликат email → `409`.
 
-### Частичное обновление (`PUT /api/users/{id}`)
+### Частичное обновление пользователя (`PUT /api/users/{id}`)
 
 Тело — JSON с любым подмножеством полей (`application/json`).
 Семантика — **merge patch**: указанные поля перезаписываются,
@@ -518,6 +590,51 @@ Email нормализуется (trim + lower case). Дубликат email →
 { "firstName": null }
 ```
 
+### Модель статуса
+
+```json
+{
+  "id": 2,
+  "name": "ToReview",
+  "slug": "to_review",
+  "createdAt": "2026-10-30"
+}
+```
+
+`name` и `slug` уникальны, оба обязательны, минимум 1 символ.
+
+### Создание статуса (`POST /api/task_statuses`)
+
+Тело:
+
+```json
+{ "name": "New", "slug": "new" }
+```
+
+Валидация: `name` и `slug` обязательны, минимум 1 символ. Дубликат
+`name` или `slug` → `409`. Требует Bearer токен.
+
+### Частичное обновление статуса (`PUT /api/task_statuses/{id}`)
+
+Тело — JSON с любым подмножеством полей. Семантика merge patch,
+как у пользователей.
+
+| Поле | Отсутствует | Пустая строка | Значение |
+|---|---|---|---|
+| `name` | не менять | `400` | заменяется, при дубликате → `409` |
+| `slug` | не менять | `400` | заменяется, при дубликате → `409` |
+
+Пример:
+
+```json
+{ "name": "newStatus" }
+```
+
+### Удаление статуса (`DELETE /api/task_statuses/{id}`)
+
+Успех → `204`. Несуществующий id → `404`. Без токена → `401`.
+Требует Bearer токен.
+
 ### Коды ошибок
 
 | Код | Когда |
@@ -525,10 +642,10 @@ Email нормализуется (trim + lower case). Дубликат email →
 | `400` | Валидация, невалидный JSON, явный `null` для обязательного поля |
 | `401` | Нет токена, токен просрочен, подпись/issuer не сходятся, неверные креды |
 | `403` | Токен валиден, но нет прав на операцию (чужой пользователь) |
-| `404` | Пользователь не найден |
+| `404` | Ресурс не найден |
 | `405` | Неподдерживаемый HTTP-метод для эндпоинта |
 | `406` | Неприемлемый `Accept` |
-| `409` | Дубликат email |
+| `409` | Дубликат email, name или slug |
 | `415` | Неподдерживаемый `Content-Type` |
 | `500` | Внутренняя ошибка |
 
