@@ -40,6 +40,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/users")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/task_statuses/**")
+                                        .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/",
