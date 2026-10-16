@@ -7,10 +7,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.task_status.TaskStatusCreateDTO;
 import hexlet.code.dto.task_status.TaskStatusDTO;
-import hexlet.code.exception.DuplicateNameException;
-import hexlet.code.exception.DuplicateSlugException;
+import hexlet.code.exception.DuplicateResourceException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.TaskStatusMapperImpl;
@@ -48,7 +48,8 @@ class TaskStatusServiceTest {
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                         .build();
         validator = Validation.buildDefaultValidatorFactory().getValidator();
-        service = new TaskStatusService(repository, mapper, jsonMapper, validator);
+        service =
+                new TaskStatusService(repository, mapper, new PatchSupport(jsonMapper, validator));
     }
 
     // ============================ findAll / findById ============================
@@ -108,7 +109,7 @@ class TaskStatusServiceTest {
         when(repository.existsBySlug("new")).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(dto))
-                .isInstanceOf(DuplicateSlugException.class)
+                .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("new");
 
         verify(repository, never()).save(any());
@@ -121,7 +122,7 @@ class TaskStatusServiceTest {
         when(repository.existsByName("New")).thenReturn(true);
 
         assertThatThrownBy(() -> service.create(dto))
-                .isInstanceOf(DuplicateNameException.class)
+                .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("New");
 
         verify(repository, never()).save(any());
@@ -191,7 +192,7 @@ class TaskStatusServiceTest {
                                         patch(
                                                 """
                 { "slug": "taken" }""")))
-                .isInstanceOf(DuplicateSlugException.class);
+                .isInstanceOf(DuplicateResourceException.class);
 
         verify(repository, never()).save(any());
     }
