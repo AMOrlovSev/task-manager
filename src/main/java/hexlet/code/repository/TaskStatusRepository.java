@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface TaskStatusRepository extends JpaRepository<TaskStatus, Long> {
     Optional<TaskStatus> findBySlug(String slug);
 
-    boolean existsBySlug(String Slug);
+    boolean existsBySlug(String slug);
 
     boolean existsByName(String name);
 }

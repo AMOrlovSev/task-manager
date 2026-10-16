@@ -1,6 +1,6 @@
 package hexlet.code.dto.task_status;
 
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,7 +8,7 @@ import lombok.Setter;
 @Setter
 public class TaskStatusUpdateDTO {
 
-    @Size(min = 1, message = "Name must be at least 1 character") private String name;
+    @NotBlank(message = "Name is required") private String name;
 
-    @Size(min = 1, message = "Slug must be at least 1 character") private String slug;
+    @NotBlank(message = "Slug is required") private String slug;
 }

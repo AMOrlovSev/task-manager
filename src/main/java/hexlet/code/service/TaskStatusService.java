@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -42,7 +43,7 @@ public class TaskStatusService {
     }
 
     public List<TaskStatusDTO> findAll() {
-        return repository.findAll().stream().map(mapper::toDto).toList();
+        return repository.findAll(Sort.by("id")).stream().map(mapper::toDto).toList();
     }
 
     public TaskStatusDTO findById(Long id) {
@@ -51,15 +52,20 @@ public class TaskStatusService {
 
     @Transactional
     public TaskStatusDTO create(TaskStatusCreateDTO dto) {
-        if (repository.existsBySlug(dto.slug())) {
-            throw new DuplicateSlugException(
-                    "TaskStatus with slug " + dto.slug() + " already exists");
+        String name = dto.name().trim();
+        String slug = dto.slug().trim();
+
+        if (repository.existsBySlug(slug)) {
+            throw new DuplicateSlugException("TaskStatus with slug " + slug + " already exists");
         }
-        if (repository.existsByName(dto.name())) {
-            throw new DuplicateNameException(
-                    "TaskStatus with name " + dto.name() + " already exists");
+        if (repository.existsByName(name)) {
+            throw new DuplicateNameException("TaskStatus with name " + name + " already exists");
         }
-        return mapper.toDto(repository.save(mapper.toEntity(dto)));
+
+        var entity = mapper.toEntity(dto);
+        entity.setName(name);
+        entity.setSlug(slug);
+        return mapper.toDto(repository.save(entity));
     }
 
     @Transactional
@@ -82,15 +88,14 @@ public class TaskStatusService {
             throw new ValidationException(errors);
         }
 
-        if (dto.getSlug() != null
-                && !dto.getSlug().equals(entity.getSlug())
-                && repository.existsBySlug(dto.getSlug())) {
+        dto.setName(dto.getName().trim());
+        dto.setSlug(dto.getSlug().trim());
+
+        if (!dto.getSlug().equals(entity.getSlug()) && repository.existsBySlug(dto.getSlug())) {
             throw new DuplicateSlugException(
                     "TaskStatus with slug " + dto.getSlug() + " already exists");
         }
-        if (dto.getName() != null
-                && !dto.getName().equals(entity.getName())
-                && repository.existsByName(dto.getName())) {
+        if (!dto.getName().equals(entity.getName()) && repository.existsByName(dto.getName())) {
             throw new DuplicateNameException(
                     "TaskStatus with name " + dto.getName() + " already exists");
         }
