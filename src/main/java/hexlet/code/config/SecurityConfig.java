@@ -29,7 +29,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    @SuppressWarnings("java:S4502") // stateless Bearer API: CSRF не нужен
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -39,6 +38,8 @@ public class SecurityConfig {
                                                 "/welcome", "/actuator/health/**", "/api/login")
                                         .permitAll()
                                         .requestMatchers(HttpMethod.POST, "/api/users")
+                                        .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/api/task_statuses/**")
                                         .permitAll()
                                         .requestMatchers(
                                                 HttpMethod.GET,
