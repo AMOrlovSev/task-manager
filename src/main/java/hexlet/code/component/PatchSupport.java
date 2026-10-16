@@ -28,13 +28,17 @@ public class PatchSupport {
 
     public <T> T apply(T current, JsonNode patch, Class<T> type) {
         requireObject(patch);
+
+        JsonNode currentJson = jsonMapper.valueToTree(current);
+
         T result;
         try {
-            JsonNode merged = jsonMapper.updateValue(jsonMapper.valueToTree(current), patch);
+            JsonNode merged = jsonMapper.updateValue(currentJson, patch);
             result = jsonMapper.treeToValue(merged, type);
         } catch (JacksonException e) {
             throw new ValidationException(Map.of("body", "Invalid field value"));
         }
+
         validate(result);
         return result;
     }
