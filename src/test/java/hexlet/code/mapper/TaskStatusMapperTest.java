@@ -57,7 +57,7 @@ class TaskStatusMapperTest {
     }
 
     @Test
-    void updateWithNullFieldsKeepsTargetValues() {
+    void updateWithNullFieldsOverwritesTarget() {
         var entity = new TaskStatus();
         entity.setName("Draft");
         entity.setSlug("draft");

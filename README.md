@@ -1,3 +1,8 @@
+# Task Manager
+
+[![CI](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/AMOrlovSev/task-manager/actions/workflows/ci.yml)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=AMOrlovSev_task-manager&metric=coverage)](https://sonarcloud.io/summary/new_code?id=AMOrlovSev_task-manager)
+
 Веб-приложение для управления задачами на Spring Boot с SPA-фронтендом.
 
 **Демо:** https://task-manager-c4wi.onrender.com
@@ -29,7 +34,7 @@
 
 - JDK 21+
 - Node.js 22+ и npm
-- Docker — для запуска интеграционных тестов и сборки образа
+- Docker - для запуска интеграционных тестов и сборки образа
 - Make (опционально, для удобства)
 - На Windows: Git Bash или WSL для запуска `make` и bash-скриптов npm
 
@@ -54,17 +59,17 @@ npx build-frontend
 
 Приложение: http://localhost:8080/
 
-По умолчанию активируется профиль `development` — приложение стартует
+По умолчанию активируется профиль `development` - приложение стартует
 на in-memory **H2** (PostgreSQL compatibility mode), **Flyway** накатывает
 миграции при старте.
 
 **H2 Console** доступна по адресу http://localhost:8080/h2-console
-(JDBC URL — как в `application-development.yml`, логин `sa`, пароль пустой).
+(JDBC URL - как в `application-development.yml`, логин `sa`, пароль пустой).
 
 При старте создаётся администратор из `app.admin.*` и дефолтные статусы
 задач (см. разделы «Администратор по умолчанию» и «Статусы задач»).
 JWT-ключи для профиля `development` генерируются эфемерно при каждом
-запуске — это нормально для локальной разработки.
+запуске - это нормально для локальной разработки.
 
 ### Через Make
 
@@ -77,7 +82,7 @@ make lint       # проверка форматирования
 make format     # автоформатирование
 ```
 
-`make` под Windows запускайте из **Git Bash** или **WSL**, не из PowerShell —
+`make` под Windows запускайте из **Git Bash** или **WSL**, не из PowerShell -
 цель `frontend` вызывает bash-скрипт `build-frontend` из npm-пакета.
 
 ### Docker
@@ -122,7 +127,7 @@ docker run --rm -p 8080:8080 \
 
 ## Переменные окружения (production)
 
-Профиль **production** не содержит дефолтов — приложение упадёт на
+Профиль **production** не содержит дефолтов - приложение упадёт на
 старте, если обязательная переменная не задана.
 
 | Переменная | Обязательна | Описание |
@@ -144,18 +149,18 @@ docker run --rm -p 8080:8080 \
 
 - email нормализуется (trim + lower case);
 - пароль хешируется **BCrypt**;
-- повторный запуск не падает — при существующем email
+- повторный запуск не падает - при существующем email
   `DuplicateEmailException` перехватывается и логируется.
 
 В профиле **development** используются значения
 `hexlet@example.com` / `qwerty` (см. `application-development.yml`).
-В проде значения обязаны прийти из `ADMIN_EMAIL` и `ADMIN_PASSWORD` —
+В проде значения обязаны прийти из `ADMIN_EMAIL` и `ADMIN_PASSWORD` -
 пароль должен быть сильным.
 
 ## Аутентификация
 
 Все защищённые эндпоинты требуют заголовок `Authorization: Bearer <JWT>`.
-JWT подписан **RS256** (RSA + SHA-256), TTL — 1 час (настраивается
+JWT подписан **RS256** (RSA + SHA-256), TTL - 1 час (настраивается
 через `app.jwt.ttl`, короткий формат Spring или ISO-8601, напр. `30m`,
 `2h` или `PT30M`).
 
@@ -168,11 +173,11 @@ Content-Type: application/json
 { "username": "hexlet@example.com", "password": "qwerty" }
 ```
 
-Успех → `200`, тело — сам токен строкой (без JSON-обёртки).
+Успех → `200`, тело - сам токен строкой (без JSON-обёртки).
 
 Ошибка (неверный пароль, неизвестный email, пустые поля, пустое тело) →
 `401` с телом `Invalid credentials`. Тело ответа **одинаковое** для всех
-сценариев — это защита от перечисления пользователей.
+сценариев - это защита от перечисления пользователей.
 
 ### Использование токена
 
@@ -205,9 +210,9 @@ curl http://localhost:8080/api/users \
 | Профиль | Источник ключа |
 |---|---|
 | `development`, `test` | Эфемерная пара, генерируется при старте (`JwtKeyConfig.devKeyPair`) |
-| `production` | `PemKeyParser.parse(${app.jwt.private-key})` — из `JWT_PRIVATE_KEY` |
+| `production` | `PemKeyParser.parse(${app.jwt.private-key})` - из `JWT_PRIVATE_KEY` |
 
-Публичный ключ отдельно не хранится — он выводится из приватного
+Публичный ключ отдельно не хранится - он выводится из приватного
 (`RSAPrivateCrtKey.getModulus()` + `getPublicExponent()`).
 
 ### Генерация ключа для прода
@@ -248,7 +253,7 @@ $pem | Set-Content -Encoding ascii -NoNewline jwt-private.pem
 ### Смена ключа
 
 При смене `JWT_PRIVATE_KEY` **все ранее выданные токены перестают работать**
-— пользователи должны залогиниться заново. Это ожидаемое поведение.
+- пользователи должны залогиниться заново. Это ожидаемое поведение.
 
 ## Авторизация
 
@@ -263,11 +268,11 @@ public UserDTO update(...) { ... }
 
 Проверка `@PreAuthorize` выполняется **до** входа в метод. Поэтому чужой
 `PUT /api/users/999999` (несуществующий id) возвращает `403`, а не `404`
-— сначала проверяются права, потом ищется ресурс. Это предотвращает
+- сначала проверяются права, потом ищется ресурс. Это предотвращает
 раскрытие информации о существовании объектов.
 
 Статусы задач (`/api/task_statuses/**`) читают все, включая анонимных
-клиентов — GET открыт. Создание, изменение и удаление требуют Bearer
+клиентов - GET открыт. Создание, изменение и удаление требуют Bearer
 токена. Специальных прав «только владелец» у статусов нет: их может
 менять любой аутентифицированный пользователь.
 
@@ -309,26 +314,27 @@ public UserDTO update(...) { ... }
 ### Получение по слагу
 
 В репозитории есть метод `findBySlug`. Слаг уникален, поэтому это
-однозначный идентификатор статуса — на его основе можно строить
+однозначный идентификатор статуса - на его основе можно строить
 человекочитаемые URL (например, `/statuses/to_review`).
 
 ### Обновление статуса
 
 Тот же merge-patch, что и у пользователей: в теле `PUT /api/task_statuses/{id}`
 передаётся любое подмножество полей. Отсутствующие не трогаются,
-пустые строки валидацию не проходят (`@Size(min = 1)`), дубликаты
+`name` и `slug` не могут быть null или состоять из пробелов - валидируется через `@NotBlank`.
+Пробелы в начале и конце обрезаются сервисом до сохранения., дубликаты
 `name`/`slug` возвращают `409`.
 
-| Поле | Отсутствует | Пустая строка | Значение |
+| Поле | Отсутствует | `null` или пробелы | Значение |
 |---|---|---|---|
-| `name` | не менять | `400` | заменяется, при дубликате → `409` |
-| `slug` | не менять | `400` | заменяется, при дубликате → `409` |
+| `name` | не менять | `400` | trim + замена, дубликат → `409` |
+| `slug` | не менять | `400` | trim + замена, дубликат → `409` |
 
 ## Фронтенд
 
 SPA на React, подключается как npm-пакет
 [`@hexlet/java-task-manager-frontend`](https://www.npmjs.com/package/@hexlet/java-task-manager-frontend).
-Исходников фронтенда в этом репозитории нет — есть только `package.json`
+Исходников фронтенда в этом репозитории нет - есть только `package.json`
 и `package-lock.json`, которые фиксируют версию пакета. Весь код и сборка
 живут внутри пакета.
 
@@ -344,7 +350,7 @@ make setup
 `./gradlew build` (компилирует и тестирует Java-часть, используя уже
 готовую статику).
 
-Цель `frontend` под капотом — ровно две команды:
+Цель `frontend` под капотом - ровно две команды:
 
 ```bash
 npm ci
@@ -357,7 +363,7 @@ npx build-frontend
   Vite и кладёт результат в `src/main/resources/static/`.
 
 **Требуется bash.** Под Windows `make frontend` запускайте из Git Bash
-или WSL. Из PowerShell скрипт не отработает — там нет bash. Если `make`
+или WSL. Из PowerShell скрипт не отработает - там нет bash. Если `make`
 не установлен, выполните две команды напрямую в Git Bash.
 
 ### Режим разработки
@@ -366,10 +372,10 @@ npx build-frontend
 перезагрузкой и проксированием API-запросов на бэкенд:
 
 ```bash
-# в одном терминале — backend
+# в одном терминале - backend
 ./gradlew bootRun
 
-# в другом — dev-сервер фронтенда
+# в другом - dev-сервер фронтенда
 npx start-frontend
 ```
 
@@ -380,14 +386,14 @@ SPA в браузере обращается к своему origin, а запр
 
 Почему это удобно: изменения в исходниках фронтенда подхватываются
 мгновенно без пересборки бандла. Продакшн-сборка (`make frontend`)
-делается редко — только перед `./gradlew build`, перед `docker build`
+делается редко - только перед `./gradlew build`, перед `docker build`
 или в CI.
 
 ### Почему бандл не коммитится
 
 `src/main/resources/static/` в `.gitignore`. Причины:
 
-- это **артефакт**, а не исходник. Артефакты в репозитории — источник
+- это **артефакт**, а не исходник. Артефакты в репозитории - источник
   конфликтов: каждый `make setup` перегенерирует файлы с новыми хешами
   в именах (`index-a1b2c3.js`), и в диффах будет шум вместо полезных
   изменений;
@@ -404,7 +410,7 @@ SPA в браузере обращается к своему origin, а запр
 JWT **не хранится на сервере**. После успешного `POST /api/login` фронтенд
 получает токен в теле ответа и сохраняет его **в `localStorage` браузера**.
 Заголовок `Authorization: Bearer <token>` ставит собственный `httpClient`
-в `dataProvider.ts` пакета `@hexlet/java-task-manager-frontend` — axios-
+в `dataProvider.ts` пакета `@hexlet/java-task-manager-frontend` - axios-
 interceptor там не используется.
 
 Схема:
@@ -412,7 +418,7 @@ interceptor там не используется.
 1. Пользователь вводит email и пароль в форме логина.
 2. SPA делает `POST /api/login`, получает JWT строкой.
 3. Токен кладётся в `localStorage` вместе с **логином и паролем
-   в открытом виде** под ключом `user` — это известный компромисс
+   в открытом виде** под ключом `user` - это известный компромисс
    учебного пакета, а не рекомендация для прода. В реальном продукте
    так делать нельзя: любой XSS прочитает и токен, и пароль.
 4. При каждом защищённом запросе `httpClient` из `dataProvider.ts`
@@ -423,15 +429,15 @@ interceptor там не используется.
 Почему **localStorage**, а не `cookie`:
 
 - cookie отправляются браузером автоматически при каждом запросе на тот
-  же домен — это открывает CSRF-атаки. Для защиты пришлось бы
+  же домен - это открывает CSRF-атаки. Для защиты пришлось бы
   возвращать CSRF-токен.
 - localStorage читается только из JS на том же origin. Запросы с чужих
   сайтов токен не увидят и не подставят.
-- на бэкенде поэтому `csrf.disable()` — классический CSRF-вектор
+- на бэкенде поэтому `csrf.disable()` - классический CSRF-вектор
   отсутствует по построению.
 
 Обратная сторона: localStorage уязвим для XSS. Для продакшена правильнее
-HttpOnly cookie + CSRF-токен — тогда пароль в открытом виде не хранится
+HttpOnly cookie + CSRF-токен - тогда пароль в открытом виде не хранится
 на клиенте вообще.
 
 ## Миграции (Flyway)
@@ -441,13 +447,13 @@ SQL-миграции лежат в `src/main/resources/db/migration/` и нак�
 
 Текущие миграции:
 
-- `V1__create_users.sql` — таблица `users`
-- `V2__make_user_names_nullable.sql` — снимает `not null` с `first_name`
+- `V1__create_users.sql` - таблица `users`
+- `V2__make_user_names_nullable.sql` - снимает `not null` с `first_name`
   и `last_name`
-- `V3__create_task_statuses.sql` — таблица `task_statuses` с уникальными
+- `V3__create_task_statuses.sql` - таблица `task_statuses` с уникальными
   индексами на `name` и `slug`
 
-Схемой управляет Flyway, Hibernate работает в режиме `validate` —
+Схемой управляет Flyway, Hibernate работает в режиме `validate` -
 если маппинг сущностей разойдётся с миграциями, приложение не стартует.
 
 ## Разработка
@@ -491,37 +497,37 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ## CI/CD
 
-- CI — GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube,
+- CI - GitHub Actions: сборка и тесты бэкенда, покрытие, анализ SonarQube,
   проверка `docker build` (Dockerfile двухстадийный, стадия `node:22-slim`
   собирает фронтенд; проверка ловит поломку стадии на PR, а не на Render).
   Сборка фронтенда отдельным шагом в CI не выполняется: тесты бэкенда
   статику не используют.
-- Деплой — Render (Docker, многостадийная сборка).
-- Качество — SonarCloud.
+- Деплой - Render (Docker, многостадийная сборка).
+- Качество - SonarCloud.
 
 ## API
 
-Базовый путь для пользователей — `/api/users`, для статусов задач —
+Базовый путь для пользователей - `/api/users`, для статусов задач -
 `/api/task_statuses`. Защищённые эндпоинты требуют заголовок
 `Authorization: Bearer <JWT>`.
 
 | Метод | Путь | Тело запроса | Успешный ответ | Auth | Описание |
 |---|---|---|---|---|---|
-| `GET` | `/` | — | `200` HTML (SPA) | — | SPA-страница |
-| `GET` | `/assets/**` | — | `200` JS/CSS | — | Статика SPA |
-| `GET` | `/welcome` | — | `200` text | — | Приветствие |
-| `GET` | `/actuator/health` | — | `200` JSON | — | Статус приложения |
-| `POST` | `/api/login` | JSON | `200` text (JWT) | — | Аутентификация, возвращает JWT |
-| `GET` | `/api/users` | — | `200` JSON-массив, заголовок `X-Total-Count` | Bearer | Список пользователей |
-| `GET` | `/api/users/{id}` | — | `200` JSON | Bearer | Пользователь по id |
-| `POST` | `/api/users` | JSON | `201` JSON, заголовок `Location` | — | Регистрация |
+| `GET` | `/` | - | `200` HTML (SPA) | - | SPA-страница |
+| `GET` | `/assets/**` | - | `200` JS/CSS | - | Статика SPA |
+| `GET` | `/welcome` | - | `200` text | - | Приветствие |
+| `GET` | `/actuator/health` | - | `200` JSON | - | Статус приложения |
+| `POST` | `/api/login` | JSON | `200` text (JWT) | - | Аутентификация, возвращает JWT |
+| `GET` | `/api/users` | - | `200` JSON-массив, заголовок `X-Total-Count` | Bearer | Список пользователей |
+| `GET` | `/api/users/{id}` | - | `200` JSON | Bearer | Пользователь по id |
+| `POST` | `/api/users` | JSON | `201` JSON, заголовок `Location` | - | Регистрация |
 | `PUT` | `/api/users/{id}` | JSON | `200` JSON | Bearer + owner | Частичное обновление (merge patch) |
-| `DELETE` | `/api/users/{id}` | — | `204` | Bearer + owner | Удаление пользователя |
-| `GET` | `/api/task_statuses` | — | `200` JSON-массив, заголовок `X-Total-Count` | — | Список статусов |
-| `GET` | `/api/task_statuses/{id}` | — | `200` JSON | — | Статус по id |
+| `DELETE` | `/api/users/{id}` | - | `204` | Bearer + owner | Удаление пользователя |
+| `GET` | `/api/task_statuses` | - | `200` JSON-массив, заголовок `X-Total-Count` | - | Список статусов |
+| `GET` | `/api/task_statuses/{id}` | - | `200` JSON | - | Статус по id |
 | `POST` | `/api/task_statuses` | JSON | `201` JSON, заголовок `Location` | Bearer | Создание статуса |
 | `PUT` | `/api/task_statuses/{id}` | JSON | `200` JSON | Bearer | Частичное обновление (merge patch) |
-| `DELETE` | `/api/task_statuses/{id}` | — | `204` | Bearer | Удаление статуса |
+| `DELETE` | `/api/task_statuses/{id}` | - | `204` | Bearer | Удаление статуса |
 
 `owner` = `sub` токена должен совпадать с `id` в пути.
 
@@ -533,7 +539,7 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 { "username": "hexlet@example.com", "password": "qwerty" }
 ```
 
-Успех → `200`, тело — JWT строкой. Ошибка → `401`,
+Успех → `200`, тело - JWT строкой. Ошибка → `401`,
 тело `Invalid credentials`.
 
 ### Модель пользователя
@@ -548,7 +554,7 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 }
 ```
 
-`firstName` и `lastName` — nullable. `passwordDigest` в ответах
+`firstName` и `lastName` - nullable. `passwordDigest` в ответах
 никогда не возвращается.
 
 ### Создание пользователя (`POST /api/users`)
@@ -569,8 +575,8 @@ Email нормализуется (trim + lower case). Дубликат email →
 
 ### Частичное обновление пользователя (`PUT /api/users/{id}`)
 
-Тело — JSON с любым подмножеством полей (`application/json`).
-Семантика — **merge patch**: указанные поля перезаписываются,
+Тело - JSON с любым подмножеством полей (`application/json`).
+Семантика - **merge patch**: указанные поля перезаписываются,
 отсутствующие не трогаются. Только для самого пользователя.
 
 | Поле | Отсутствует | `null` | Значение |
@@ -616,7 +622,7 @@ Email нормализуется (trim + lower case). Дубликат email →
 
 ### Частичное обновление статуса (`PUT /api/task_statuses/{id}`)
 
-Тело — JSON с любым подмножеством полей. Семантика merge patch,
+Тело - JSON с любым подмножеством полей. Семантика merge patch,
 как у пользователей.
 
 | Поле | Отсутствует | Пустая строка | Значение |
@@ -649,6 +655,6 @@ Email нормализуется (trim + lower case). Дубликат email →
 | `415` | Неподдерживаемый `Content-Type` |
 | `500` | Внутренняя ошибка |
 
-Тело ошибки валидации — `{"field": "message"}`.
-Тело `401` для `/api/login` — `Invalid credentials`.
-Тело `403` — `Access denied`.
+Тело ошибки валидации - `{"field": "message"}`.
+Тело `401` для `/api/login` - `Invalid credentials`.
+Тело `403` - `Access denied`.

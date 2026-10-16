@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -54,7 +55,7 @@ class TaskStatusServiceTest {
 
     @Test
     void findAllReturnsList() {
-        when(repository.findAll())
+        when(repository.findAll(Sort.by("id")))
                 .thenReturn(
                         List.of(
                                 existing(1L, "Draft", "draft"),

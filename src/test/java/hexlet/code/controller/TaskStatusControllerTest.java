@@ -328,6 +328,107 @@ class TaskStatusControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void testUpdateNameToNullReturns400() throws Exception {
+        var status = persist("TestDraft", "draft-null-name");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "name": null }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = repository.findById(status.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("TestDraft");
+    }
+
+    @Test
+    void testUpdateSlugToNullReturns400() throws Exception {
+        var status = persist("TestDraft", "draft-null-slug");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "slug": null }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = repository.findById(status.getId()).orElseThrow();
+        assertThat(after.getSlug()).isEqualTo("draft-null-slug");
+    }
+
+    @Test
+    void testUpdateNameToBlankReturns400() throws Exception {
+        var status = persist("TestDraft", "draft-blank-name");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "name": "   " }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = repository.findById(status.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("TestDraft");
+    }
+
+    @Test
+    void testUpdateSlugToBlankReturns400() throws Exception {
+        var status = persist("TestDraft", "draft-blank-slug");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "slug": "   " }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = repository.findById(status.getId()).orElseThrow();
+        assertThat(after.getSlug()).isEqualTo("draft-blank-slug");
+    }
+
+    @Test
+    void testCreateTrimsNameAndSlug() throws Exception {
+        var body =
+                """
+                { "name": "  Padded  ", "slug": "  padded  " }
+                """;
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Padded"))
+                .andExpect(jsonPath("$.slug").value("padded"));
+    }
+
+    @Test
+    void testUpdateTrimsNameAndSlug() throws Exception {
+        var status = persist("TestDraft", "draft-trim");
+
+        mockMvc.perform(
+                        put(URL + "/" + status.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "name": "  Renamed  ", "slug": "  renamed  " }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Renamed"))
+                .andExpect(jsonPath("$.slug").value("renamed"));
+    }
+
     // ============================ DELETE ============================
 
     @Test
