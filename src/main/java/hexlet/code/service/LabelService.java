@@ -50,6 +50,7 @@ public class LabelService {
 
     @Transactional
     public LabelDTO update(Long id, JsonNode patch) {
+        patchSupport.requireObject(patch);
         var current = getOrThrow(id);
         var dto = patchSupport.apply(labelMapper.toUpdateDto(current), patch, LabelUpdateDTO.class);
 
