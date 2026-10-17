@@ -7,15 +7,22 @@ import hexlet.code.dto.task.TaskUpdateDTO;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.TaskMapper;
+import hexlet.code.model.Label;
 import hexlet.code.model.Task;
 import hexlet.code.model.TaskStatus;
 import hexlet.code.model.User;
+import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
+
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,18 +35,20 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskStatusRepository taskStatusRepository;
     private final UserRepository userRepository;
+    private final LabelRepository labelRepository;
     private final TaskMapper mapper;
     private final PatchSupport patchSupport;
 
     public TaskService(
             TaskRepository taskRepository,
             TaskStatusRepository taskStatusRepository,
-            UserRepository userRepository,
+            UserRepository userRepository, LabelRepository labelRepository,
             TaskMapper mapper,
             PatchSupport patchSupport) {
         this.taskRepository = taskRepository;
         this.taskStatusRepository = taskStatusRepository;
         this.userRepository = userRepository;
+        this.labelRepository = labelRepository;
         this.mapper = mapper;
         this.patchSupport = patchSupport;
     }
@@ -61,6 +70,7 @@ public class TaskService {
         task.setName(dto.title().trim());
         task.setTaskStatus(status);
         task.setAssignee(assignee);
+        task.setLabels(resolveLabels(dto.taskLabelIds()));
         return mapper.toDto(taskRepository.save(task));
     }
 
@@ -82,6 +92,8 @@ public class TaskService {
             task.setAssignee(resolveAssignee(dto.getAssigneeId()));
         }
 
+        applyLabelsPatch(task, dto.getTaskLabelIds(), patchNode.has("taskLabelIds"));
+
         mapper.update(dto, task);
         return mapper.toDto(taskRepository.save(task));
     }
@@ -89,6 +101,37 @@ public class TaskService {
     @Transactional
     public void delete(Long id) {
         taskRepository.delete(getOrThrow(id));
+    }
+
+    private void applyLabelsPatch(Task task, List<Long> requestedIds, boolean keyPresent) {
+        if (!keyPresent) {
+            return;
+        }
+        if (requestedIds == null) {
+            task.setLabels(new HashSet<>());
+            return;
+        }
+        Set<Long> requested = new HashSet<>(requestedIds);
+        Set<Long> current =
+                task.getLabels().stream().map(Label::getId).collect(Collectors.toSet());
+        if (!requested.equals(current)) {
+            task.setLabels(resolveLabels(requestedIds));
+        }
+    }
+
+    private Set<Label> resolveLabels(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new HashSet<>();
+        }
+        var distinct = ids.stream().distinct().toList();
+        var labels = labelRepository.findAllById(distinct);
+        if (labels.size() < distinct.size()) {
+            var foundIds = labels.stream().map(Label::getId).collect(Collectors.toSet());
+            var missing = distinct.stream().filter(id -> !foundIds.contains(id)).toList();
+            throw new ValidationException(
+                    Map.of("taskLabelIds", "Labels not found: " + missing));
+        }
+        return new HashSet<>(labels);
     }
 
     private Task getOrThrow(Long id) {
