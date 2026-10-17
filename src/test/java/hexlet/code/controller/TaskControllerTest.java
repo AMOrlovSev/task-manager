@@ -1,14 +1,17 @@
 package hexlet.code.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -235,6 +238,38 @@ class TaskControllerTest {
     }
 
     @Test
+    void createWithTooLongContentReturns400() throws Exception {
+        var contentStr = "a".repeat(4001);
+        var body =
+                """
+                { "title": "X", "status": "draft", "content": "%s" }
+                """
+                        .formatted(contentStr);
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createWithIndexAsStringReturns400() throws Exception {
+        var body =
+                """
+                { "title": "X", "status": "draft", "index": "abc" }
+                """;
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createWithoutStatusReturns400() throws Exception {
         var body =
                 """
@@ -247,6 +282,23 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createIgnoresIdAndCreatedAt() throws Exception {
+        var body =
+                """
+                { "id": 999, "createdAt": "2020-01-01", "title": "X", "status": "draft" }
+                """;
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(not(999)))
+                .andExpect(jsonPath("$.createdAt").value(not("2020-01-01")));
     }
 
     @Test
@@ -272,7 +324,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": "New" }"""))
+                                        { "title": "New" }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New"))
                 .andExpect(jsonPath("$.content").value("c"))
@@ -289,7 +341,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "content": null }"""))
+                                        { "content": null }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").value(nullValue()));
     }
@@ -305,7 +357,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "assignee_id": null }"""))
+                                        { "assignee_id": null }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.assignee_id").value(nullValue()));
     }
@@ -320,7 +372,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "status": "to_review" }"""))
+                                        { "status": "to_review" }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("to_review"));
     }
@@ -335,7 +387,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "index": 2 }"""))
+                                        { "index": 2 }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.index").value(2));
     }
@@ -350,7 +402,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "index": 3, "status": "published" }"""))
+                                        { "index": 3, "status": "published" }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.index").value(3))
                 .andExpect(jsonPath("$.status").value("published"));
@@ -366,7 +418,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": "Y", "taskLabelIds": [1, 2], "assigneeId": 99 }"""))
+                                        { "title": "Y", "taskLabelIds": [1, 2], "assigneeId": 99 }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Y"));
     }
@@ -381,8 +433,25 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": null }"""))
+                                        { "title": null }"""))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateBlankTitleReturns400() throws Exception {
+        var t = persistTask("X", null, null, draft(), null);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "title": "   " }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = taskRepository.findById(t.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("X");
     }
 
     @Test
@@ -395,7 +464,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "status": null }"""))
+                                        { "status": null }"""))
                 .andExpect(status().isBadRequest());
     }
 
@@ -409,7 +478,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "status": "nope" }"""))
+                                        { "status": "nope" }"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").exists());
     }
@@ -424,9 +493,23 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "assignee_id": 999999 }"""))
+                                        { "assignee_id": 999999 }"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.assignee_id").exists());
+    }
+
+    @Test
+    void updateIndexAsStringReturns400() throws Exception {
+        var t = persistTask("X", null, null, draft(), null);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "index": "abc" }"""))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -439,7 +522,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": { "a": 1 } }"""))
+                                        { "title": { "a": 1 } }"""))
                 .andExpect(status().isBadRequest());
     }
 
@@ -456,6 +539,23 @@ class TaskControllerTest {
     }
 
     @Test
+    void updateIgnoresIdAndCreatedAt() throws Exception {
+        var t = persistTask("X", null, null, draft(), null);
+        var originalId = t.getId();
+
+        mockMvc.perform(
+                        put(URL + "/" + originalId)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "id": 999, "createdAt": "2020-01-01", "title": "Y" }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(originalId))
+                .andExpect(jsonPath("$.createdAt").value(not("2020-01-01")));
+    }
+
+    @Test
     void updateNonExistentReturns404() throws Exception {
         mockMvc.perform(
                         put(URL + "/999999")
@@ -463,8 +563,19 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": "X" }"""))
+                                        { "title": "X" }"""))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void updateArrayBodyOnNonExistentIdReturns400() throws Exception {
+        // 400 должен выиграть у 404: сначала проверяется тело, потом ищется задача
+        mockMvc.perform(
+                        put(URL + "/999999")
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("[1, 2, 3]"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
@@ -476,7 +587,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "title": "Y" }"""))
+                                        { "title": "Y" }"""))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -503,7 +614,7 @@ class TaskControllerTest {
         mockMvc.perform(delete(URL + "/" + t.getId())).andExpect(status().isUnauthorized());
     }
 
-    // ============================ cross-resource ============================
+    // ============================ cross-resource (409) ============================
 
     @Test
     void deleteUserAssignedToTaskReturns409() throws Exception {
@@ -511,25 +622,77 @@ class TaskControllerTest {
         persistTask("X", null, null, draft(), user);
 
         mockMvc.perform(delete("/api/users/" + user.getId()).with(authAs(user)))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("assigned to tasks")));
 
         assertThat(userRepository.findById(user.getId())).isPresent();
     }
 
     @Test
+    void deleteUserWithTwoTasksReturns409() throws Exception {
+        var user = persistUser("u@x.com", "qwerty123");
+        persistTask("X", null, null, draft(), user);
+        persistTask("Y", null, null, draft(), user);
+
+        mockMvc.perform(delete("/api/users/" + user.getId()).with(authAs(user)))
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("assigned to tasks")));
+
+        assertThat(userRepository.findById(user.getId())).isPresent();
+        assertThat(taskRepository.findAll()).hasSize(2);
+    }
+
+    @Test
     void deleteStatusUsedByTaskReturns409() throws Exception {
-        persistTask("X", null, null, draft(), null);
+        var status = persistStatus("InUse", "in-use");
+        persistTask("X", null, null, status, null);
 
-        mockMvc.perform(delete("/api/task_statuses/" + draft().getId()).with(auth()))
-                .andExpect(status().isConflict());
+        mockMvc.perform(delete("/api/task_statuses/" + status.getId()).with(auth()))
+                .andExpect(status().isConflict())
+                .andExpect(content().string(containsString("used by tasks")));
 
-        assertThat(taskStatusRepository.findBySlug("draft")).isPresent();
+        assertThat(taskStatusRepository.findById(status.getId())).isPresent();
+    }
+
+    @Test
+    void deleteUserAfterTaskRemovedReturns204() throws Exception {
+        var user = persistUser("u@x.com", "qwerty123");
+        var task = persistTask("X", null, null, draft(), user);
+
+        mockMvc.perform(delete(URL + "/" + task.getId()).with(auth()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/users/" + user.getId()).with(authAs(user)))
+                .andExpect(status().isNoContent());
+
+        assertThat(userRepository.findById(user.getId())).isEmpty();
+    }
+
+    @Test
+    void deleteStatusAfterTaskRemovedReturns204() throws Exception {
+        var status = persistStatus("TemporaryStatus", "temporary-status");
+        var task = persistTask("X", null, null, status, null);
+
+        mockMvc.perform(delete(URL + "/" + task.getId()).with(auth()))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(delete("/api/task_statuses/" + status.getId()).with(auth()))
+                .andExpect(status().isNoContent());
+
+        assertThat(taskStatusRepository.findById(status.getId())).isEmpty();
     }
 
     // ============================ helpers ============================
 
     private TaskStatus draft() {
         return taskStatusRepository.findBySlug("draft").orElseThrow();
+    }
+
+    private TaskStatus persistStatus(String name, String slug) {
+        var s = new TaskStatus();
+        s.setName(name);
+        s.setSlug(slug);
+        return taskStatusRepository.save(s);
     }
 
     private User persistUser(String email, String rawPassword) {
