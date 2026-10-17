@@ -5,10 +5,12 @@ import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
 import hexlet.code.dto.user.UserUpdateDTO;
 import hexlet.code.exception.DuplicateEmailException;
+import hexlet.code.exception.ResourceInUseException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.UserMapper;
 import hexlet.code.model.User;
+import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.UserRepository;
 import java.util.List;
 import java.util.Map;
@@ -25,16 +27,19 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final PatchSupport patchSupport;
+    private final TaskRepository taskRepository;
 
     public UserService(
             UserRepository userRepository,
             UserMapper userMapper,
             PasswordEncoder passwordEncoder,
-            PatchSupport patchSupport) {
+            PatchSupport patchSupport,
+            TaskRepository taskRepository) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.patchSupport = patchSupport;
+        this.taskRepository = taskRepository;
     }
 
     public List<UserDTO> findAll() {
@@ -92,6 +97,10 @@ public class UserService {
     @Transactional
     public void delete(Long id) {
         User user = getUserOrThrow(id);
+        if (taskRepository.existsByAssigneeId(id)) {
+            throw new ResourceInUseException(
+                    "User with id " + id + " is assigned to tasks and cannot be deleted");
+        }
         userRepository.delete(user);
     }
 

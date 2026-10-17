@@ -11,10 +11,12 @@ import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.task_status.TaskStatusCreateDTO;
 import hexlet.code.dto.task_status.TaskStatusDTO;
 import hexlet.code.exception.DuplicateResourceException;
+import hexlet.code.exception.ResourceInUseException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.TaskStatusMapperImpl;
 import hexlet.code.model.TaskStatus;
+import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -34,6 +36,7 @@ import tools.jackson.databind.json.JsonMapper;
 class TaskStatusServiceTest {
 
     @Mock private TaskStatusRepository repository;
+    @Mock private TaskRepository taskRepository;
 
     private TaskStatusMapperImpl mapper;
     private JsonMapper jsonMapper;
@@ -49,7 +52,11 @@ class TaskStatusServiceTest {
                         .build();
         validator = Validation.buildDefaultValidatorFactory().getValidator();
         service =
-                new TaskStatusService(repository, mapper, new PatchSupport(jsonMapper, validator));
+                new TaskStatusService(
+                        repository,
+                        mapper,
+                        new PatchSupport(jsonMapper, validator),
+                        taskRepository);
     }
 
     // ============================ findAll / findById ============================
@@ -252,6 +259,7 @@ class TaskStatusServiceTest {
     void deleteExisting() {
         var entity = existing(1L, "Draft", "draft");
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(taskRepository.existsByTaskStatusId(1L)).thenReturn(false);
 
         service.delete(1L);
 
@@ -264,6 +272,19 @@ class TaskStatusServiceTest {
 
         assertThatThrownBy(() -> service.delete(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(repository, never()).delete(any());
+    }
+
+    @Test
+    void deleteStatusUsedByTaskThrows() {
+        var entity = existing(1L, "Draft", "draft");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(taskRepository.existsByTaskStatusId(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(ResourceInUseException.class)
+                .hasMessageContaining("used by tasks");
 
         verify(repository, never()).delete(any());
     }
