@@ -5,14 +5,15 @@ import hexlet.code.dto.task.TaskDTO;
 import hexlet.code.dto.task.TaskUpdateDTO;
 import hexlet.code.model.Label;
 import hexlet.code.model.Task;
+import java.util.List;
+import java.util.Set;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
-import java.util.List;
-import java.util.Set;
-
-@Mapper(componentModel = "spring", uses = {LabelMapper.class})
+@Mapper(
+        componentModel = "spring",
+        uses = {LabelMapper.class})
 public abstract class TaskMapper {
 
     @Mapping(source = "name", target = "title")
@@ -53,9 +54,6 @@ public abstract class TaskMapper {
         if (labels == null) {
             return List.of();
         }
-        return labels.stream()
-                .map(Label::getId)
-                .sorted()
-                .toList();
+        return labels.stream().map(Label::getId).sorted().toList();
     }
 }

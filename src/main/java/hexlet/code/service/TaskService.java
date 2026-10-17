@@ -15,14 +15,12 @@ import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +40,8 @@ public class TaskService {
     public TaskService(
             TaskRepository taskRepository,
             TaskStatusRepository taskStatusRepository,
-            UserRepository userRepository, LabelRepository labelRepository,
+            UserRepository userRepository,
+            LabelRepository labelRepository,
             TaskMapper mapper,
             PatchSupport patchSupport) {
         this.taskRepository = taskRepository;
@@ -112,8 +111,7 @@ public class TaskService {
             return;
         }
         Set<Long> requested = new HashSet<>(requestedIds);
-        Set<Long> current =
-                task.getLabels().stream().map(Label::getId).collect(Collectors.toSet());
+        Set<Long> current = task.getLabels().stream().map(Label::getId).collect(Collectors.toSet());
         if (!requested.equals(current)) {
             task.setLabels(resolveLabels(requestedIds));
         }
@@ -128,8 +126,7 @@ public class TaskService {
         if (labels.size() < distinct.size()) {
             var foundIds = labels.stream().map(Label::getId).collect(Collectors.toSet());
             var missing = distinct.stream().filter(id -> !foundIds.contains(id)).toList();
-            throw new ValidationException(
-                    Map.of("taskLabelIds", "Labels not found: " + missing));
+            throw new ValidationException(Map.of("taskLabelIds", "Labels not found: " + missing));
         }
         return new HashSet<>(labels);
     }
