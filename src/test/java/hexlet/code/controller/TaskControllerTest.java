@@ -17,9 +17,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import hexlet.code.TestcontainersConfig;
+import hexlet.code.model.Label;
 import hexlet.code.model.Task;
 import hexlet.code.model.TaskStatus;
 import hexlet.code.model.User;
+import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
@@ -48,6 +50,7 @@ class TaskControllerTest {
     @Autowired private TaskStatusRepository taskStatusRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private LabelRepository labelRepository;
 
     // ============================ GET list ============================
 
@@ -312,6 +315,42 @@ class TaskControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void createWithTooManyLabelIdsReturns400() throws Exception {
+        var ids = new StringBuilder();
+        for (int i = 0; i < 101; i++) {
+            if (i > 0) {
+                ids.append(",");
+            }
+            ids.append(i + 1);
+        }
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [%s] }"""
+                        .formatted(ids);
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createWithNonNumericLabelIdReturns400() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": ["a"] }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ PUT ============================
 
     @Test
@@ -418,7 +457,7 @@ class TaskControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                        { "title": "Y", "taskLabelIds": [1, 2], "assigneeId": 99 }"""))
+                                        { "title": "Y", "labels": [1, 2], "assigneeId": 99 }"""))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Y"));
     }
@@ -680,6 +719,217 @@ class TaskControllerTest {
                 .andExpect(status().isNoContent());
 
         assertThat(taskStatusRepository.findById(status.getId())).isEmpty();
+    }
+
+    // ============================ labels ============================
+
+    @Test
+    void createWithLabels() throws Exception {
+        var label1 = persistLabel("lbl-bug");
+        var label2 = persistLabel("lbl-feature");
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [%d, %d] }"""
+                        .formatted(label2.getId(), label1.getId());
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLabelIds", hasSize(2)))
+                .andExpect(jsonPath("$.taskLabelIds[0]").value(label1.getId()))
+                .andExpect(jsonPath("$.taskLabelIds[1]").value(label2.getId()));
+    }
+
+    @Test
+    void createWithoutTaskLabelIdsGivesEmptyArray() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft" }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLabelIds").isArray())
+                .andExpect(jsonPath("$.taskLabelIds").isEmpty());
+    }
+
+    @Test
+    void createWithNullTaskLabelIdsGivesEmptyArray() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": null }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLabelIds").isEmpty());
+    }
+
+    @Test
+    void createWithDuplicateLabelIdsCollapses() throws Exception {
+        var label = persistLabel("dup");
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [%d, %d] }"""
+                        .formatted(label.getId(), label.getId());
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.taskLabelIds", hasSize(1)))
+                .andExpect(jsonPath("$.taskLabelIds[0]").value(label.getId()));
+    }
+
+    @Test
+    void createWithUnknownLabelReturns400() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [999999] }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.taskLabelIds").exists());
+    }
+
+    @Test
+    void createWithNullInTaskLabelIdsReturns400() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [null] }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void putReplacesLabels() throws Exception {
+        var label1 = persistLabel("l1");
+        var label2 = persistLabel("l2");
+        var t = persistTask("T", null, null, draft(), null);
+        t.getLabels().add(label1);
+        taskRepository.save(t);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "taskLabelIds": [%d] }"""
+                                                .formatted(label2.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskLabelIds", hasSize(1)))
+                .andExpect(jsonPath("$.taskLabelIds[0]").value(label2.getId()));
+    }
+
+    @Test
+    void putEmptyArrayClearsLabels() throws Exception {
+        var label = persistLabel("x");
+        var t = persistTask("T", null, null, draft(), null);
+        t.getLabels().add(label);
+        taskRepository.save(t);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "taskLabelIds": [] }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskLabelIds").isEmpty());
+    }
+
+    @Test
+    void putNullClearsLabels() throws Exception {
+        var label = persistLabel("x");
+        var t = persistTask("T", null, null, draft(), null);
+        t.getLabels().add(label);
+        taskRepository.save(t);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "taskLabelIds": null }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.taskLabelIds").isEmpty());
+    }
+
+    @Test
+    void putIndexOnlyKeepsLabels() throws Exception {
+        var label = persistLabel("keep");
+        var t = persistTask("T", null, null, draft(), null);
+        t.getLabels().add(label);
+        taskRepository.save(t);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "index": 42 }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.index").value(42))
+                .andExpect(jsonPath("$.taskLabelIds", hasSize(1)))
+                .andExpect(jsonPath("$.taskLabelIds[0]").value(label.getId()));
+    }
+
+    @Test
+    void putUnknownLabelReturns400() throws Exception {
+        var t = persistTask("T", null, null, draft(), null);
+
+        mockMvc.perform(
+                        put(URL + "/" + t.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "taskLabelIds": [999999] }"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.taskLabelIds").exists());
+    }
+
+    @Test
+    void deleteTaskKeepsLabels() throws Exception {
+        var label = persistLabel("survivor");
+        var t = persistTask("T", null, null, draft(), null);
+        t.getLabels().add(label);
+        taskRepository.save(t);
+
+        mockMvc.perform(delete(URL + "/" + t.getId()).with(auth()))
+                .andExpect(status().isNoContent());
+
+        assertThat(labelRepository.findById(label.getId())).isPresent();
+    }
+
+    private Label persistLabel(String name) {
+        var l = new Label();
+        l.setName(name);
+        return labelRepository.save(l);
     }
 
     // ============================ helpers ============================

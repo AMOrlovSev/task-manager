@@ -8,4 +8,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     boolean existsByAssigneeId(Long assigneeId);
 
     boolean existsByTaskStatusId(Long statusId);
+
+    boolean existsByLabelsId(Long id);
 }

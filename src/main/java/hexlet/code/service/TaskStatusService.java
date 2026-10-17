@@ -12,6 +12,8 @@ import hexlet.code.model.TaskStatus;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,16 @@ import tools.jackson.databind.JsonNode;
 @Service
 @Transactional(readOnly = true)
 public class TaskStatusService {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskStatusService.class);
+
+    private static final List<TaskStatusCreateDTO> DEFAULT_STATUSES =
+            List.of(
+                    new TaskStatusCreateDTO("Draft", "draft"),
+                    new TaskStatusCreateDTO("ToReview", "to_review"),
+                    new TaskStatusCreateDTO("ToBeFixed", "to_be_fixed"),
+                    new TaskStatusCreateDTO("ToPublish", "to_publish"),
+                    new TaskStatusCreateDTO("Published", "published"));
 
     private final TaskStatusRepository repository;
     private final TaskStatusMapper mapper;
@@ -107,5 +119,17 @@ public class TaskStatusService {
                         () ->
                                 new ResourceNotFoundException(
                                         "TaskStatus with id " + id + " not found"));
+    }
+
+    @Transactional
+    public void createDefaultsIfMissing() {
+        for (TaskStatusCreateDTO dto : DEFAULT_STATUSES) {
+            if (repository.existsBySlug(dto.slug()) || repository.existsByName(dto.name())) {
+                log.info("TaskStatus already exists, skipping: {}", dto.slug());
+                continue;
+            }
+            create(dto);
+            log.info("TaskStatus created: {}", dto.slug());
+        }
     }
 }

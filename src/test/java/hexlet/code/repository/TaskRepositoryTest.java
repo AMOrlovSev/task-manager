@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import hexlet.code.TestcontainersConfig;
 import hexlet.code.config.JpaConfig;
+import hexlet.code.model.Label;
 import hexlet.code.model.Task;
 import hexlet.code.model.TaskStatus;
 import hexlet.code.model.User;
@@ -26,6 +27,7 @@ class TaskRepositoryTest {
     @Autowired private TaskStatusRepository taskStatusRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private EntityManager entityManager;
+    @Autowired private LabelRepository labelRepository;
 
     @Test
     void existsByAssigneeIdAndStatusId() {
@@ -86,6 +88,37 @@ class TaskRepositoryTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    @Test
+    void existsByLabelsId() {
+        var status = saveStatus("s-lbl", "s-lbl");
+        var label = saveLabel("lbl");
+        var task = saveTask("T", status, null);
+        task.getLabels().add(label);
+        taskRepository.saveAndFlush(task);
+
+        assertThat(taskRepository.existsByLabelsId(label.getId())).isTrue();
+    }
+
+    @Test
+    void existsByLabelsIdReturnsFalseWhenNotLinked() {
+        assertThat(taskRepository.existsByLabelsId(999999L)).isFalse();
+    }
+
+    @Test
+    void deleteTaskRemovesJoinRowsButKeepsLabel() {
+        var status = saveStatus("s-del", "s-del");
+        var label = saveLabel("lbl-del");
+        var task = saveTask("T", status, null);
+        task.getLabels().add(label);
+        taskRepository.saveAndFlush(task);
+
+        taskRepository.delete(task);
+        taskRepository.flush();
+
+        assertThat(labelRepository.findById(label.getId())).isPresent();
+        assertThat(taskRepository.existsByLabelsId(label.getId())).isFalse();
+    }
+
     // helpers
 
     private TaskStatus saveStatus(String name, String slug) {
@@ -108,5 +141,11 @@ class TaskRepositoryTest {
         t.setTaskStatus(status);
         t.setAssignee(assignee);
         return taskRepository.saveAndFlush(t);
+    }
+
+    private Label saveLabel(String name) {
+        var l = new Label();
+        l.setName(name);
+        return labelRepository.saveAndFlush(l);
     }
 }

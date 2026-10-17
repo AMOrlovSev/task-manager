@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import hexlet.code.TestcontainersConfig;
 import hexlet.code.config.AdminProperties;
+import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
 import java.util.List;
@@ -25,6 +26,7 @@ class DataInitializerTest {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private DataInitializer initializer;
     @Autowired private AdminProperties adminProperties;
+    @Autowired private LabelRepository labelRepository;
 
     @AfterEach
     void restoreRenamedStatus() {
@@ -94,5 +96,24 @@ class DataInitializerTest {
                 .doesNotThrowAnyException();
 
         assertThat(taskStatusRepository.count()).isEqualTo(before);
+    }
+
+    @Test
+    void defaultLabelsAreSeeded() {
+        for (String name : List.of("feature", "bug")) {
+            assertThat(labelRepository.existsByName(name))
+                    .as("label '%s' should be present after startup", name)
+                    .isTrue();
+        }
+    }
+
+    @Test
+    void secondRunDoesNotDuplicateLabels() {
+        var before = labelRepository.count();
+
+        assertThatCode(() -> initializer.run(new DefaultApplicationArguments()))
+                .doesNotThrowAnyException();
+
+        assertThat(labelRepository.count()).isEqualTo(before);
     }
 }
