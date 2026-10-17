@@ -11,9 +11,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
-@Mapper(
-        componentModel = "spring",
-        uses = {LabelMapper.class})
+@Mapper(componentModel = "spring")
 public abstract class TaskMapper {
 
     @Mapping(source = "name", target = "title")

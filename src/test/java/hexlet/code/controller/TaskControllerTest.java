@@ -315,6 +315,42 @@ class TaskControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void createWithTooManyLabelIdsReturns400() throws Exception {
+        var ids = new StringBuilder();
+        for (int i = 0; i < 101; i++) {
+            if (i > 0) {
+                ids.append(",");
+            }
+            ids.append(i + 1);
+        }
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": [%s] }"""
+                        .formatted(ids);
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createWithNonNumericLabelIdReturns400() throws Exception {
+        var body =
+                """
+                { "title": "T", "status": "draft", "taskLabelIds": ["a"] }""";
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ PUT ============================
 
     @Test

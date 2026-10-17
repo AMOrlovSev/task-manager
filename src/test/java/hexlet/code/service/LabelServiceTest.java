@@ -123,6 +123,7 @@ class LabelServiceTest {
         var entity = existing(1L, "old");
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
         when(repository.existsByName("renamed")).thenReturn(false);
+        when(repository.save(any(Label.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
                 service.update(
@@ -138,6 +139,7 @@ class LabelServiceTest {
     void updateEmptyBodyKeepsEverything() {
         var entity = existing(1L, "old");
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any(Label.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result = service.update(1L, patch("{}"));
 
@@ -148,6 +150,7 @@ class LabelServiceTest {
     void updateSameNameIsNoop() {
         var entity = existing(1L, "same");
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any(Label.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
                 service.update(

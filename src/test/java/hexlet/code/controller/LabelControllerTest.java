@@ -349,6 +349,41 @@ class LabelControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void testUpdateNameToNullReturns400() throws Exception {
+        var label = persistLabel("valid");
+
+        mockMvc.perform(
+                        put(URL + "/" + label.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "name": null }"""))
+                .andExpect(status().isBadRequest());
+
+        var after = labelRepository.findById(label.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("valid");
+    }
+
+    @Test
+    void testUpdateIgnoresUnknownFields() throws Exception {
+        var label = persistLabel("keep");
+
+        mockMvc.perform(
+                        put(URL + "/" + label.getId())
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "foo": 1 }"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("keep"));
+
+        var after = labelRepository.findById(label.getId()).orElseThrow();
+        assertThat(after.getName()).isEqualTo("keep");
+    }
+
     // ============================ DELETE ============================
 
     @Test
