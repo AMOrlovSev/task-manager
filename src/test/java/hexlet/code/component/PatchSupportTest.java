@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import hexlet.code.exception.ValidationException;
 import jakarta.validation.Validation;
 import jakarta.validation.constraints.NotBlank;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,6 +22,25 @@ class PatchSupportTest {
     public static class TestDto {
         @NotBlank private String name;
         private String note;
+    }
+
+    @Getter
+    @Setter
+    public static class ListDto {
+        private List<Long> ids = new ArrayList<>();
+    }
+
+    @Getter
+    @Setter
+    public static class NestedDto {
+        private Nested nested;
+    }
+
+    @Getter
+    @Setter
+    public static class Nested {
+        private String a;
+        private String b;
     }
 
     private JsonMapper jsonMapper;
@@ -66,7 +87,7 @@ class PatchSupportTest {
                                         current,
                                         jsonMapper.readTree(
                                                 """
-                                        {"name":null}"""),
+                                {"name":null}"""),
                                         TestDto.class))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -95,7 +116,7 @@ class PatchSupportTest {
                                         current,
                                         jsonMapper.readTree(
                                                 """
-                                        {"name":"   "}"""),
+                                {"name":"   "}"""),
                                         TestDto.class))
                 .isInstanceOf(ValidationException.class);
     }
@@ -136,7 +157,7 @@ class PatchSupportTest {
                                         current,
                                         jsonMapper.readTree(
                                                 """
-                                        {"name":{"x":1}}"""),
+                                {"name":{"x":1}}"""),
                                         TestDto.class))
                 .isInstanceOf(ValidationException.class);
     }
@@ -151,6 +172,105 @@ class PatchSupportTest {
                 {"name":"New"}"""),
                 TestDto.class);
         assertThat(current.getName()).isEqualTo("Draft");
+    }
+
+    @Test
+    void arrayIsReplacedNotMerged() {
+        var current = new ListDto();
+        current.setIds(new ArrayList<>(List.of(1L, 2L)));
+
+        var result =
+                patchSupport.apply(
+                        current,
+                        jsonMapper.readTree(
+                                """
+                                {"ids":[3]}"""),
+                        ListDto.class);
+
+        assertThat(result.getIds()).containsExactly(3L);
+    }
+
+    @Test
+    void emptyArrayClearsList() {
+        var current = new ListDto();
+        current.setIds(new ArrayList<>(List.of(1L, 2L)));
+
+        var result =
+                patchSupport.apply(
+                        current,
+                        jsonMapper.readTree(
+                                """
+                                {"ids":[]}"""),
+                        ListDto.class);
+
+        assertThat(result.getIds()).isNotNull().isEmpty();
+    }
+
+    @Test
+    void nullOnListFieldClears() {
+        var current = new ListDto();
+        current.setIds(new ArrayList<>(List.of(1L, 2L)));
+
+        var result =
+                patchSupport.apply(
+                        current,
+                        jsonMapper.readTree(
+                                """
+                                {"ids":null}"""),
+                        ListDto.class);
+
+        assertThat(result.getIds()).isNull();
+    }
+
+    @Test
+    void currentListIsNotMutatedByPatch() {
+        var current = new ListDto();
+        current.setIds(new ArrayList<>(List.of(1L, 2L)));
+
+        patchSupport.apply(
+                current,
+                jsonMapper.readTree(
+                        """
+                        {"ids":[3]}"""),
+                ListDto.class);
+
+        assertThat(current.getIds()).containsExactly(1L, 2L);
+    }
+
+    @Test
+    void nestedObjectIsReplacedNotMerged() {
+        var nested = new Nested();
+        nested.setA("old-a");
+        nested.setB("old-b");
+        var current = new NestedDto();
+        current.setNested(nested);
+
+        var result =
+                patchSupport.apply(
+                        current,
+                        jsonMapper.readTree(
+                                """
+                                {"nested":{"b":"new-b"}}"""),
+                        NestedDto.class);
+
+        assertThat(result.getNested()).isNotNull();
+        assertThat(result.getNested().getA()).isNull();
+        assertThat(result.getNested().getB()).isEqualTo("new-b");
+    }
+
+    @Test
+    void nestedObjectMissingKeyKeepsWholeObject() {
+        var nested = new Nested();
+        nested.setA("old-a");
+        nested.setB("old-b");
+        var current = new NestedDto();
+        current.setNested(nested);
+
+        var result = patchSupport.apply(current, jsonMapper.readTree("{}"), NestedDto.class);
+
+        assertThat(result.getNested()).isNotNull();
+        assertThat(result.getNested().getA()).isEqualTo("old-a");
+        assertThat(result.getNested().getB()).isEqualTo("old-b");
     }
 
     private TestDto dto(String name, String note) {

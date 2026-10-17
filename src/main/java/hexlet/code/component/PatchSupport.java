@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class PatchSupport {
@@ -33,7 +34,8 @@ public class PatchSupport {
 
         T result;
         try {
-            JsonNode merged = jsonMapper.updateValue(currentJson, patch);
+            ObjectNode merged = (ObjectNode) jsonMapper.valueToTree(current);
+            merged.setAll((ObjectNode) patch);
             result = jsonMapper.treeToValue(merged, type);
         } catch (JacksonException e) {
             throw new ValidationException(Map.of("body", "Invalid field value"));
