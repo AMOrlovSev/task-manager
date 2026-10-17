@@ -66,6 +66,7 @@ public class TaskService {
 
     @Transactional
     public TaskDTO update(Long id, JsonNode patchNode) {
+        patchSupport.requireObject(patchNode);
         var task = getOrThrow(id);
         var dto = patchSupport.apply(mapper.toUpdateDto(task), patchNode, TaskUpdateDTO.class);
 
