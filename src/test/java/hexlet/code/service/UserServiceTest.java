@@ -12,10 +12,12 @@ import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
 import hexlet.code.dto.user.UserUpdateDTO;
 import hexlet.code.exception.DuplicateEmailException;
+import hexlet.code.exception.ResourceInUseException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.UserMapperImpl;
 import hexlet.code.model.User;
+import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.UserRepository;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -36,6 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
 class UserServiceTest {
 
     @Mock private UserRepository userRepository;
+    @Mock private TaskRepository taskRepository;
 
     private UserMapperImpl userMapper;
     private PasswordEncoder passwordEncoder;
@@ -63,7 +66,8 @@ class UserServiceTest {
                         userRepository,
                         userMapper,
                         passwordEncoder,
-                        new PatchSupport(jsonMapper, validator));
+                        new PatchSupport(jsonMapper, validator),
+                        taskRepository);
     }
 
     // ============================ findAll ============================
@@ -435,6 +439,7 @@ class UserServiceTest {
     void deleteExistingUser() {
         var user = existingUser(1L, "john@x.com", "qwerty123", null, null);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(taskRepository.existsByAssigneeId(1L)).thenReturn(false);
 
         userService.delete(1L);
 
@@ -447,6 +452,19 @@ class UserServiceTest {
 
         assertThatThrownBy(() -> userService.delete(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(userRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteUserAssignedToTaskThrows() {
+        var user = existingUser(1L, "john@x.com", "qwerty123", null, null);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(taskRepository.existsByAssigneeId(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.delete(1L))
+                .isInstanceOf(ResourceInUseException.class)
+                .hasMessageContaining("assigned to tasks");
 
         verify(userRepository, never()).delete(any());
     }

@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,11 +23,16 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -49,33 +55,54 @@ class SecurityTest {
 
     // ============================ 401 — без токена ============================
 
-    @Test
-    void listUsersWithoutTokenReturns401() throws Exception {
-        mockMvc.perform(get("/api/users")).andExpect(status().isUnauthorized());
+    @ParameterizedTest(name = "{0} {1} without token -> 401")
+    @MethodSource("protectedRoutes")
+    void protectedRouteWithoutTokenReturns401(HttpMethod method, String path, String body)
+            throws Exception {
+        var requestBuilder = request(method, path);
+        if (body != null) {
+            requestBuilder.contentType(MediaType.APPLICATION_JSON).content(body);
+        }
+        mockMvc.perform(requestBuilder).andExpect(status().isUnauthorized());
     }
 
-    @Test
-    void getUserByIdWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
-        mockMvc.perform(get("/api/users/" + user.getId())).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void putWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
-        mockMvc.perform(
-                        put("/api/users/" + user.getId())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(
-                                        """
-                                { "firstName": "X" }"""))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void deleteWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
-        mockMvc.perform(delete("/api/users/" + user.getId())).andExpect(status().isUnauthorized());
+    static Stream<Arguments> protectedRoutes() {
+        return Stream.of(
+                // users
+                Arguments.of(HttpMethod.GET, "/api/users", null),
+                Arguments.of(HttpMethod.GET, "/api/users/1", null),
+                Arguments.of(
+                        HttpMethod.PUT,
+                        "/api/users/1",
+                        """
+                    { "firstName": "X" }"""),
+                Arguments.of(HttpMethod.DELETE, "/api/users/1", null),
+                // task_statuses — GET открыт, поэтому только write-операции
+                Arguments.of(
+                        HttpMethod.POST,
+                        "/api/task_statuses",
+                        """
+                    { "name": "X", "slug": "x" }"""),
+                Arguments.of(
+                        HttpMethod.PUT,
+                        "/api/task_statuses/1",
+                        """
+                    { "name": "Y" }"""),
+                Arguments.of(HttpMethod.DELETE, "/api/task_statuses/1", null),
+                // tasks
+                Arguments.of(HttpMethod.GET, "/api/tasks", null),
+                Arguments.of(HttpMethod.GET, "/api/tasks/1", null),
+                Arguments.of(
+                        HttpMethod.POST,
+                        "/api/tasks",
+                        """
+                    { "title": "X", "status": "draft" }"""),
+                Arguments.of(
+                        HttpMethod.PUT,
+                        "/api/tasks/1",
+                        """
+                    { "title": "Y" }"""),
+                Arguments.of(HttpMethod.DELETE, "/api/tasks/1", null));
     }
 
     // ============================ 401 — плохой токен ============================

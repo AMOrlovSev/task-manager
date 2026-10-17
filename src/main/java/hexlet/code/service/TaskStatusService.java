@@ -5,9 +5,11 @@ import hexlet.code.dto.task_status.TaskStatusCreateDTO;
 import hexlet.code.dto.task_status.TaskStatusDTO;
 import hexlet.code.dto.task_status.TaskStatusUpdateDTO;
 import hexlet.code.exception.DuplicateResourceException;
+import hexlet.code.exception.ResourceInUseException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.mapper.TaskStatusMapper;
 import hexlet.code.model.TaskStatus;
+import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import java.util.List;
 import org.springframework.data.domain.Sort;
@@ -22,12 +24,17 @@ public class TaskStatusService {
     private final TaskStatusRepository repository;
     private final TaskStatusMapper mapper;
     private final PatchSupport patchSupport;
+    private final TaskRepository taskRepository;
 
     public TaskStatusService(
-            TaskStatusRepository repository, TaskStatusMapper mapper, PatchSupport patchSupport) {
+            TaskStatusRepository repository,
+            TaskStatusMapper mapper,
+            PatchSupport patchSupport,
+            TaskRepository taskRepository) {
         this.repository = repository;
         this.mapper = mapper;
         this.patchSupport = patchSupport;
+        this.taskRepository = taskRepository;
     }
 
     public List<TaskStatusDTO> findAll() {
@@ -85,7 +92,12 @@ public class TaskStatusService {
 
     @Transactional
     public void delete(Long id) {
-        repository.delete(getOrThrow(id));
+        var status = getOrThrow(id);
+        if (taskRepository.existsByTaskStatusId(id)) {
+            throw new ResourceInUseException(
+                    "TaskStatus with id " + id + " is used by tasks and cannot be deleted");
+        }
+        repository.delete(status);
     }
 
     private TaskStatus getOrThrow(Long id) {

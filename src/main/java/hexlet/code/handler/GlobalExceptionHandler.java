@@ -1,6 +1,7 @@
 package hexlet.code.handler;
 
 import hexlet.code.exception.DuplicateResourceException;
+import hexlet.code.exception.ResourceInUseException;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import java.util.HashMap;
@@ -64,11 +65,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
     }
 
+    @ExceptionHandler(ResourceInUseException.class)
+    public ResponseEntity<String> handleInUse(ResourceInUseException ex) {
+        log.warn("Resource in use: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
     // race на уникальном индексе при параллельных create/update
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<String> handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Data integrity violation: {}", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT).body("Resource already exists");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body("Conflict with existing data");
     }
 
     @ExceptionHandler(AuthenticationException.class)
