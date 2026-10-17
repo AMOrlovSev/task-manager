@@ -13,16 +13,20 @@ import hexlet.code.dto.task.TaskDTO;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.TaskMapperImpl;
+import hexlet.code.model.Label;
 import hexlet.code.model.Task;
 import hexlet.code.model.TaskStatus;
 import hexlet.code.model.User;
+import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +46,7 @@ class TaskServiceTest {
     @Mock private TaskRepository taskRepository;
     @Mock private TaskStatusRepository taskStatusRepository;
     @Mock private UserRepository userRepository;
+    @Mock private LabelRepository labelRepository; // STEP 9
 
     private TaskMapperImpl mapper;
     private JsonMapper jsonMapper;
@@ -59,7 +64,12 @@ class TaskServiceTest {
         patchSupport = new PatchSupport(jsonMapper, validator);
         service =
                 new TaskService(
-                        taskRepository, taskStatusRepository, userRepository, mapper, patchSupport);
+                        taskRepository,
+                        taskStatusRepository,
+                        userRepository,
+                        labelRepository,
+                        mapper,
+                        patchSupport);
     }
 
     // ============================ findAll ============================
@@ -81,7 +91,6 @@ class TaskServiceTest {
     @Test
     void findAllReturnsEmptyList() {
         when(taskRepository.findAll(Sort.by("id"))).thenReturn(List.of());
-
         assertThat(service.findAll()).isEmpty();
     }
 
@@ -100,6 +109,7 @@ class TaskServiceTest {
         assertThat(dto.title()).isEqualTo("Task");
         assertThat(dto.status()).isEqualTo("draft");
         assertThat(dto.assigneeId()).isEqualTo(2L);
+        assertThat(dto.taskLabelIds()).isEmpty();
     }
 
     @Test
@@ -119,7 +129,7 @@ class TaskServiceTest {
         when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new TaskCreateDTO("Task", "Content", 0, "draft", null);
+        var dto = new TaskCreateDTO("Task", "Content", 0, "draft", null, null);
         var result = service.create(dto);
 
         assertThat(result.title()).isEqualTo("Task");
@@ -127,6 +137,7 @@ class TaskServiceTest {
         assertThat(result.index()).isZero();
         assertThat(result.status()).isEqualTo("draft");
         assertThat(result.assigneeId()).isNull();
+        assertThat(result.taskLabelIds()).isEmpty();
 
         var saved = captureSaved();
         assertThat(saved.getName()).isEqualTo("Task");
@@ -134,6 +145,7 @@ class TaskServiceTest {
         assertThat(saved.getIndex()).isZero();
         assertThat(saved.getTaskStatus()).isEqualTo(status);
         assertThat(saved.getAssignee()).isNull();
+        assertThat(saved.getLabels()).isEmpty();
     }
 
     @Test
@@ -144,11 +156,10 @@ class TaskServiceTest {
         when(userRepository.findById(2L)).thenReturn(Optional.of(user));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new TaskCreateDTO("Task", null, null, "draft", 2L);
+        var dto = new TaskCreateDTO("Task", null, null, "draft", 2L, null);
         service.create(dto);
 
-        var saved = captureSaved();
-        assertThat(saved.getAssignee()).isEqualTo(user);
+        assertThat(captureSaved().getAssignee()).isEqualTo(user);
     }
 
     @Test
@@ -157,7 +168,7 @@ class TaskServiceTest {
         when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new TaskCreateDTO("Task", null, null, "draft", null);
+        var dto = new TaskCreateDTO("Task", null, null, "draft", null, null);
         service.create(dto);
 
         verify(userRepository, never()).findById(any());
@@ -170,7 +181,7 @@ class TaskServiceTest {
         when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        var dto = new TaskCreateDTO("  Padded  ", null, null, "draft", null);
+        var dto = new TaskCreateDTO("  Padded  ", null, null, "draft", null, null);
         service.create(dto);
 
         assertThat(captureSaved().getName()).isEqualTo("Padded");
@@ -180,7 +191,7 @@ class TaskServiceTest {
     void createWithUnknownStatusThrows() {
         when(taskStatusRepository.findBySlug("nope")).thenReturn(Optional.empty());
 
-        var dto = new TaskCreateDTO("Task", null, null, "nope", null);
+        var dto = new TaskCreateDTO("Task", null, null, "nope", null, null);
         assertThatThrownBy(() -> service.create(dto))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -195,11 +206,57 @@ class TaskServiceTest {
         when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
-        var dto = new TaskCreateDTO("Task", null, null, "draft", 999L);
+        var dto = new TaskCreateDTO("Task", null, null, "draft", 999L, null);
         assertThatThrownBy(() -> service.create(dto))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("assignee_id"));
+
+        verify(taskRepository, never()).save(any());
+    }
+
+    // ============================ create — labels ============================
+
+    @Test
+    void createWithLabelsResolvesAndSaves() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var l1 = existingLabel(10L, "bug");
+        var l2 = existingLabel(20L, "feature");
+        when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
+        when(labelRepository.findAllById(List.of(20L, 10L))).thenReturn(List.of(l1, l2));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = new TaskCreateDTO("Task", null, null, "draft", null, List.of(20L, 10L));
+        var result = service.create(dto);
+
+        assertThat(result.taskLabelIds()).containsExactly(10L, 20L);
+        assertThat(captureSaved().getLabels()).containsExactlyInAnyOrder(l1, l2);
+    }
+
+    @Test
+    void createWithEmptyLabelListSkipsRepository() {
+        var status = existingStatus(1L, "Draft", "draft");
+        when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = new TaskCreateDTO("Task", null, null, "draft", null, List.of());
+        service.create(dto);
+
+        verify(labelRepository, never()).findAllById(any());
+        assertThat(captureSaved().getLabels()).isEmpty();
+    }
+
+    @Test
+    void createWithUnknownLabelThrows() {
+        var status = existingStatus(1L, "Draft", "draft");
+        when(taskStatusRepository.findBySlug("draft")).thenReturn(Optional.of(status));
+        when(labelRepository.findAllById(List.of(999L))).thenReturn(List.of());
+
+        var dto = new TaskCreateDTO("Task", null, null, "draft", null, List.of(999L));
+        assertThatThrownBy(() -> service.create(dto))
+                .isInstanceOf(ValidationException.class)
+                .extracting(ex -> ((ValidationException) ex).getErrors())
+                .satisfies(errors -> assertThat(errors).containsKey("taskLabelIds"));
 
         verify(taskRepository, never()).save(any());
     }
@@ -240,7 +297,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"title": {"a": 1}}""")))
+        {"title": {"a": 1}}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("body"));
@@ -262,7 +319,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"title": null}""")))
+        {"title": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -282,7 +339,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"title": "   "}""")))
+        {"title": "   "}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -302,7 +359,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"status": null}""")))
+        {"status": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -323,7 +380,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                        {"content": "%s"}"""
+                {"content": "%s"}"""
                                                         .formatted(content))))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -346,8 +403,10 @@ class TaskServiceTest {
         assertThat(result.title()).isEqualTo("Task");
         assertThat(result.status()).isEqualTo("draft");
         assertThat(result.assigneeId()).isNull();
+        assertThat(result.taskLabelIds()).isEmpty();
         verify(taskStatusRepository, never()).findBySlug(any());
         verify(userRepository, never()).findById(any());
+        verify(labelRepository, never()).findAllById(any());
     }
 
     @Test
@@ -430,16 +489,19 @@ class TaskServiceTest {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
+        // labels и assigneeId (camelCase) — не поля TaskUpdateDTO, должны быть проигнорированы
         var result =
                 service.update(
                         1L,
                         patch(
                                 """
-                                {"title": "X", "taskLabelIds": [1, 2], "assigneeId": 99}"""));
+                                {"title": "X", "labels": [1, 2], "assigneeId": 99}"""));
 
         assertThat(result.title()).isEqualTo("X");
         assertThat(result.assigneeId()).isNull();
+        assertThat(result.taskLabelIds()).isEmpty();
         verify(userRepository, never()).findById(any());
+        verify(labelRepository, never()).findAllById(any());
     }
 
     // ============================ update — status ============================
@@ -495,7 +557,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"status": "nope"}""")))
+        {"status": "nope"}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -577,7 +639,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"assignee_id": 999}""")))
+        {"assignee_id": 999}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("assignee_id"));
@@ -585,7 +647,135 @@ class TaskServiceTest {
         verify(taskRepository, never()).save(any());
     }
 
-    // ============================ update — misc ============================
+    // ============================ update — labels ============================
+
+    @Test
+    void updateWithoutTaskLabelIdsKeyKeepsLabels() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var label = existingLabel(5L, "bug");
+        var task = existingTask(1L, "Task", status, null);
+        task.getLabels().add(label);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var result =
+                service.update(
+                        1L,
+                        patch(
+                                """
+                {"index": 42}"""));
+
+        assertThat(result.taskLabelIds()).containsExactly(5L);
+        verify(labelRepository, never()).findAllById(any());
+        assertThat(task.getLabels()).containsExactly(label);
+    }
+
+    @Test
+    void updateWithEmptyArrayClearsLabels() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var label = existingLabel(5L, "bug");
+        var task = existingTask(1L, "Task", status, null);
+        task.getLabels().add(label);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var result =
+                service.update(
+                        1L,
+                        patch(
+                                """
+                {"taskLabelIds": []}"""));
+
+        assertThat(result.taskLabelIds()).isEmpty();
+        assertThat(task.getLabels()).isEmpty();
+        verify(labelRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void updateWithNullClearsLabels() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var label = existingLabel(5L, "bug");
+        var task = existingTask(1L, "Task", status, null);
+        task.getLabels().add(label);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var result =
+                service.update(
+                        1L,
+                        patch(
+                                """
+                {"taskLabelIds": null}"""));
+
+        assertThat(result.taskLabelIds()).isEmpty();
+        assertThat(task.getLabels()).isEmpty();
+        verify(labelRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void updateReplacesLabels() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var oldLabel = existingLabel(5L, "bug");
+        var newLabel = existingLabel(7L, "feature");
+        var task = existingTask(1L, "Task", status, null);
+        task.getLabels().add(oldLabel);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(labelRepository.findAllById(List.of(7L))).thenReturn(List.of(newLabel));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var result =
+                service.update(
+                        1L,
+                        patch(
+                                """
+                {"taskLabelIds": [7]}"""));
+
+        assertThat(result.taskLabelIds()).containsExactly(7L);
+        assertThat(task.getLabels()).containsExactly(newLabel);
+    }
+
+    @Test
+    void updateWithSameLabelSetSkipsLookup() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var label = existingLabel(5L, "bug");
+        var task = existingTask(1L, "Task", status, null);
+        task.getLabels().add(label);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        var result =
+                service.update(
+                        1L,
+                        patch(
+                                """
+                {"taskLabelIds": [5]}"""));
+
+        assertThat(result.taskLabelIds()).containsExactly(5L);
+        verify(labelRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void updateWithUnknownLabelThrows() {
+        var status = existingStatus(1L, "Draft", "draft");
+        var task = existingTask(1L, "Task", status, null);
+        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(labelRepository.findAllById(List.of(999L))).thenReturn(List.of());
+
+        assertThatThrownBy(
+                        () ->
+                                service.update(
+                                        1L,
+                                        patch(
+                                                """
+        {"taskLabelIds": [999]}""")))
+                .isInstanceOf(ValidationException.class)
+                .extracting(ex -> ((ValidationException) ex).getErrors())
+                .satisfies(errors -> assertThat(errors).containsKey("taskLabelIds"));
+
+        verify(taskRepository, never()).save(any());
+    }
+
+    // ============================ misc ============================
 
     @Test
     void updateNonExistentTaskThrows() {
@@ -597,12 +787,10 @@ class TaskServiceTest {
                                         999L,
                                         patch(
                                                 """
-                {"title": "X"}""")))
+        {"title": "X"}""")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
     }
-
-    // ============================ delete ============================
 
     @Test
     void deleteExistingCallsDelete() {
@@ -642,12 +830,20 @@ class TaskServiceTest {
         return u;
     }
 
+    private Label existingLabel(Long id, String name) {
+        var l = new Label();
+        l.setId(id);
+        l.setName(name);
+        return l;
+    }
+
     private Task existingTask(Long id, String name, TaskStatus status, User assignee) {
         var t = new Task();
         t.setId(id);
         t.setName(name);
         t.setTaskStatus(status);
         t.setAssignee(assignee);
+        t.setLabels(new HashSet<>());
         return t;
     }
 
@@ -659,5 +855,10 @@ class TaskServiceTest {
         var captor = ArgumentCaptor.forClass(Task.class);
         verify(taskRepository).save(captor.capture());
         return captor.getValue();
+    }
+
+    @SuppressWarnings("unused")
+    private Set<Label> labels(Label... labels) {
+        return new HashSet<>(List.of(labels));
     }
 }

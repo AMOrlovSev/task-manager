@@ -77,7 +77,7 @@ class SecurityTest {
                         """
                     { "firstName": "X" }"""),
                 Arguments.of(HttpMethod.DELETE, "/api/users/1", null),
-                // task_statuses — GET открыт, поэтому только write-операции
+                // task_statuses
                 Arguments.of(
                         HttpMethod.POST,
                         "/api/task_statuses",
@@ -89,6 +89,20 @@ class SecurityTest {
                         """
                     { "name": "Y" }"""),
                 Arguments.of(HttpMethod.DELETE, "/api/task_statuses/1", null),
+                // labels
+                Arguments.of(HttpMethod.GET, "/api/labels", null),
+                Arguments.of(HttpMethod.GET, "/api/labels/1", null),
+                Arguments.of(
+                        HttpMethod.POST,
+                        "/api/labels",
+                        """
+                    { "name": "X" }"""),
+                Arguments.of(
+                        HttpMethod.PUT,
+                        "/api/labels/1",
+                        """
+                    { "name": "Y" }"""),
+                Arguments.of(HttpMethod.DELETE, "/api/labels/1", null),
                 // tasks
                 Arguments.of(HttpMethod.GET, "/api/tasks", null),
                 Arguments.of(HttpMethod.GET, "/api/tasks/1", null),
