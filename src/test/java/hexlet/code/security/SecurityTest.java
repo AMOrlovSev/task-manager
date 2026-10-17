@@ -50,32 +50,45 @@ class SecurityTest {
     // ============================ 401 — без токена ============================
 
     @Test
-    void listUsersWithoutTokenReturns401() throws Exception {
+    void usersRoutesRequireToken() throws Exception {
         mockMvc.perform(get("/api/users")).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void getUserByIdWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
-        mockMvc.perform(get("/api/users/" + user.getId())).andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void putWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
+        mockMvc.perform(get("/api/users/1")).andExpect(status().isUnauthorized());
         mockMvc.perform(
-                        put("/api/users/" + user.getId())
+                        post("/api/users")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(
                                         """
-                                { "firstName": "X" }"""))
+                                    { "email": "john@x.com", "password": "qwerty123" }"""))
+                .andExpect(status().isCreated());
+        mockMvc.perform(
+                        put("/api/users/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                    { "firstName": "X" }"""))
                 .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/users/1")).andExpect(status().isUnauthorized());
     }
 
     @Test
-    void deleteWithoutTokenReturns401() throws Exception {
-        var user = persistUser("u@x.com", "qwerty123");
-        mockMvc.perform(delete("/api/users/" + user.getId())).andExpect(status().isUnauthorized());
+    void tasksRoutesRequireToken() throws Exception {
+        mockMvc.perform(get("/api/tasks")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/tasks/1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                        post("/api/tasks")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "title": "X", "status": "draft" }"""))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(
+                        put("/api/tasks/1")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(
+                                        """
+                                        { "title": "X" }"""))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/tasks/1")).andExpect(status().isUnauthorized());
     }
 
     // ============================ 401 — плохой токен ============================
