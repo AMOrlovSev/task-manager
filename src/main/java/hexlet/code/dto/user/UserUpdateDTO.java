@@ -13,10 +13,14 @@ import lombok.Setter;
 public class UserUpdateDTO {
 
     @Schema(description = "Email", example = "hexlet@example.com", maxLength = 255)
-    @NotBlank(message = "Email is required") @Size(max = 255, message = "Email must be at most 255 characters") @Email(message = "Invalid email format") private String email;
+    @NotBlank(message = "Email is required")
+    @Size(max = 255, message = "Email must be at most 255 characters")
+    @Email(message = "Invalid email format")
+    private String email;
 
     @Schema(description = "Новый пароль", example = "qwerty", minLength = 3)
-    @Size(min = 3, message = "Password must be at least 3 characters") private String password;
+    @Size(min = 3, message = "Password must be at least 3 characters")
+    private String password;
 
     @Schema(description = "Имя", example = "Иван")
     private String firstName;

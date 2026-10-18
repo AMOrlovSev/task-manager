@@ -12,8 +12,12 @@ import lombok.Setter;
 public class TaskStatusUpdateDTO {
 
     @Schema(description = "Отображаемое имя статуса", example = "В работе", maxLength = 255)
-    @NotBlank(message = "Name is required") @Size(max = 255, message = "Name must be at most 255 characters") private String name;
+    @NotBlank(message = "Name is required")
+    @Size(max = 255, message = "Name must be at most 255 characters")
+    private String name;
 
     @Schema(description = "Slug статуса", example = "in_progress", maxLength = 255)
-    @NotBlank(message = "Slug is required") @Size(max = 255, message = "Slug must be at most 255 characters") private String slug;
+    @NotBlank(message = "Slug is required")
+    @Size(max = 255, message = "Slug must be at most 255 characters")
+    private String slug;
 }

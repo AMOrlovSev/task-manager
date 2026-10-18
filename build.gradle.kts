@@ -81,7 +81,11 @@ tasks.withType<Test> {
 spotless {
 	java {
 		googleJavaFormat().aosp()
-		formatAnnotations()
+		removeUnusedImports()
+		//formatAnnotations()
+		trimTrailingWhitespace()
+		endWithNewline()
+		importOrder()
 	}
 }
 

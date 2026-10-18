@@ -12,7 +12,9 @@ import lombok.Setter;
 public class LabelUpdateDTO {
 
     @Schema(description = "Название метки", example = "feature", minLength = 3, maxLength = 1000)
-    @NotBlank(message = "Name is required") @Size(min = 3, max = 1000, message = "Name must be between 3 and 1000 characters") private String name;
+    @NotBlank(message = "Name is required")
+    @Size(min = 3, max = 1000, message = "Name must be between 3 and 1000 characters")
+    private String name;
 
     public void setName(String name) {
         this.name = name == null ? null : name.strip();
