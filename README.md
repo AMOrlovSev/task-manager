@@ -683,9 +683,9 @@ curl 'http://localhost:8080/api/tasks?titleCont=create&status=draft&assigneeId=2
 
 ```java
 public List<TaskDTO> findAll(TaskFilterDTO filter) {
-    var spec = specification.build(filter);
-    return taskRepository.findAll(spec, Sort.by("id")).stream()
-            .map(mapper::toDto).toList();
+  var spec = specification.build(filter);
+  return taskRepository.findAll(spec, Sort.by("id")).stream()
+          .map(mapper::toDto).toList();
 }
 ```
 
@@ -712,16 +712,21 @@ public List<TaskDTO> findAll(TaskFilterDTO filter) {
 - **Нечисловые `assigneeId` и `labelId` → `400`.** `?assigneeId=abc`
   отклоняется на этапе конвертации параметра. Обрабатывается
   `GlobalExceptionHandler` (`MethodArgumentTypeMismatchException`).
-- **`labelId` не режет метки.** Фильтрующий `join("labels")` в
-  спецификации **не является fetch**. Иначе в ответе у задачи
-  оказалась бы только та метка, по которой фильтровали, и
-  `taskLabelIds` стал бы неверным. `@EntityGraph` строит свой
-  отдельный `join fetch` и подтягивает метки полностью. Покрыто
-  тестом `TaskControllerTest.filterLabelIdDoesNotTrimOtherLabels`.
-- **`labelId` через `join` без `distinct`.** Параметр одиночный, пара
-  `(task_id, label_id)` в `tasks_labels` уникальна, дублей нет. Если
-  позже появится фильтр по нескольким меткам — придётся переходить
-  на `exists`-подзапрос.
+- **`labelId` через коррелированный `exists`-подзапрос.** Условие
+  строится как `exists (select t.id from Task t join t.labels l where
+  t.id = :taskId and l.id = :labelId)`, а не как `join` в основном
+  запросе. Это даёт два свойства:
+  - **Метки в ответе не режутся.** Фильтрующее условие не участвует
+    в выборке основного запроса, а `@EntityGraph` строит свой
+    `join fetch` и подтягивает **все** метки задачи. В ответе на
+    `?labelId=1` у задачи с метками `[1, 2]` будет `taskLabelIds: [1, 2]`,
+    а не `[1]`. Покрыто тестами
+    `TaskControllerTest.filterLabelIdDoesNotTrimOtherLabels` и
+    `TaskSpecificationTest.labelFilterMatchesLinkedLabel` (оба
+    сбрасывают persistence context, чтобы запрос реально шёл в БД).
+  - **Нет дублей и `distinct` не нужен.** Подзапрос только проверяет
+    существование связи, поэтому одна задача не размножается по числу
+    её меток.
 - **Индексы.** Новая миграция не нужна: `idx_tasks_status_id` и
   `idx_tasks_assignee_id` уже есть в `V4`, `tasks_labels.label_id` —
   в `V5`.
@@ -752,15 +757,18 @@ public List<TaskDTO> findAll(TaskFilterDTO filter) {
 
 #### До и после
 
-| Состояние | Запросов |
+| Состояние | Запросов на 10 задач |
 |---|---|
-| Без `@EntityGraph` | **≈13** (1 на список + 2 уникальных статуса + 10 коллекций меток) |
+| Без `@EntityGraph` | 13 (1 список + 2 статуса + 10 коллекций меток) |
 | С `@EntityGraph({"taskStatus", "labels"})` | **1** |
 
-Точное число «до» зависит от кэша первого уровня Hibernate и настройки
-`default_batch_fetch_size`. Актуальную цифру возьмите из прогона
-`TaskQueryCountTest` **без** `@EntityGraph`: тест упадёт на
-`expected: 1 but was: N` — это и есть значение для README.
+<!-- Значение «13» получено расчётом по структуре теста; перед мержем подтвердить прогоном TaskQueryCountTest без @EntityGraph и при необходимости заменить. -->
+
+Без графа Hibernate загружает `taskStatus` для каждого уникального
+статуса (повторные обращения берутся из кэша первого уровня) и
+отдельным запросом коллекцию `labels` для каждой задачи — число
+запросов растёт вместе с числом задач. С графом всё приходит одним
+`select` с join.
 
 #### Что сделано
 
@@ -771,9 +779,9 @@ public List<TaskDTO> findAll(TaskFilterDTO filter) {
 public interface TaskRepository
         extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
 
-    @Override
-    @EntityGraph(attributePaths = {"taskStatus", "labels"})
-    List<Task> findAll(Specification<Task> spec, Sort sort);
+  @Override
+  @EntityGraph(attributePaths = {"taskStatus", "labels"})
+  List<Task> findAll(Specification<Task> spec, Sort sort);
 }
 ```
 
@@ -796,9 +804,10 @@ public interface TaskRepository
   GIN-индекс. Сейчас не делаем — преждевременная оптимизация.
 - Пагинации на `/api/tasks` нет: список отдаётся целиком,
   `X-Total-Count` нужен react-admin только для счётчика.
-- Фильтр по одной метке. Фильтр по нескольким меткам потребует
-  `exists`-подзапроса вместо `join` — иначе появятся дубли задач,
-  и `X-Total-Count` станет неверным.
+- Фильтр только по одной метке (`labelId`). Фильтр по нескольким
+  меткам потребует доработки условия: нужно решить, должны ли
+  совпадать все метки или хотя бы одна. `exists`-подзапрос дублей
+  задач при этом не создаёт.
 
 ## Фронтенд
 
@@ -918,15 +927,6 @@ HttpOnly cookie + CSRF-токен — тогда пароль в открыто�
 `taskLabelIds` как есть; при перетаскивании карточки в Kanban — только
 `{"index": N}` или `{"index": N, "status": "slug"}`, метки при этом
 не трогаются.
-
-### Фильтры на фронтенде
-
-`ra-data-json-server` автоматически превращает поля фильтра из UI
-в query-параметры (`titleCont`, `assigneeId`, `status`, `labelId`)
-и добавляет `_start`, `_end`, `_sort`, `_order`. Бэкенд неизвестные
-параметры игнорирует, а известные применяет через `TaskSpecification`.
-`X-Total-Count` в ответе — размер отфильтрованного списка, поэтому
-счётчик в UI совпадает с числом видимых карточек.
 
 ## Миграции (Flyway)
 
@@ -1199,17 +1199,8 @@ Email нормализуется (trim + lower case). Дубликат email →
 
 ### Фильтры списка задач (`GET /api/tasks`)
 
-| Параметр | Тип | Описание |
-|---|---|---|
-| `titleCont` | `string` | Подстрока в названии без учёта регистра, `%`/`_`/`\` экранируются |
-| `assigneeId` | `long` | id исполнителя |
-| `status` | `string` | slug статуса |
-| `labelId` | `long` | id метки |
-
-Все параметры опциональны, объединяются через AND, пустые/пробельные
-игнорируются. Неизвестный `status`/`assigneeId`/`labelId` даёт `200 []`,
-нечисловой `assigneeId`/`labelId` — `400`. Детали и решения — в разделе
-«Фильтрация задач».
+Список поддерживает `titleCont`, `assigneeId`, `status`, `labelId`.
+Описание, примеры и поведение — в разделе **«Фильтрация задач»**.
 
 ### Коды ошибок
 
