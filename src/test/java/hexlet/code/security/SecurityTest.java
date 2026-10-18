@@ -116,7 +116,16 @@ class SecurityTest {
                         "/api/tasks/1",
                         """
                     { "title": "Y" }"""),
-                Arguments.of(HttpMethod.DELETE, "/api/tasks/1", null));
+                Arguments.of(HttpMethod.DELETE, "/api/tasks/1", null),
+                // tasks with filter query params
+                Arguments.of(HttpMethod.GET, "/api/tasks?titleCont=x", null),
+                Arguments.of(HttpMethod.GET, "/api/tasks?assigneeId=1", null),
+                Arguments.of(HttpMethod.GET, "/api/tasks?status=draft", null),
+                Arguments.of(HttpMethod.GET, "/api/tasks?labelId=1", null),
+                Arguments.of(
+                        HttpMethod.GET,
+                        "/api/tasks?titleCont=x&status=draft&assigneeId=1&labelId=1",
+                        null));
     }
 
     // ============================ 401 — плохой токен ============================
@@ -299,7 +308,6 @@ class SecurityTest {
         var attacker = persistUser("attacker@x.com", "qwerty123");
         var token = validToken(attacker);
 
-        // 999999 не существует, но авторизация должна сработать раньше поиска
         mockMvc.perform(
                         put("/api/users/999999")
                                 .header("Authorization", "Bearer " + token)
@@ -360,7 +368,6 @@ class SecurityTest {
     }
 
     private String expiredToken(User user) {
-        // iat = now - 2h, exp = iat + 1h => exp < now, far past 60s skew of Nimbus
         var past = Instant.now().minusSeconds(7200);
         return jwtEncoder
                 .encode(JwtEncoderParameters.from(claims(user, past, past.plusSeconds(3600))))
