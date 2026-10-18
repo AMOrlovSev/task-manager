@@ -26,6 +26,7 @@ import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,7 @@ class TaskControllerTest {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private LabelRepository labelRepository;
+    @Autowired private EntityManager entityManager;
 
     // ============================ GET list ============================
 
@@ -278,6 +280,11 @@ class TaskControllerTest {
         task.getLabels().add(l1);
         task.getLabels().add(l2);
         taskRepository.save(task);
+
+        // Выгружаем persistence context, чтобы findAll реально шёл в БД,
+        // а не возвращал задачу с коллекцией labels из памяти.
+        entityManager.flush();
+        entityManager.clear();
 
         mockMvc.perform(get(URL).param("labelId", l1.getId().toString()).with(auth()))
                 .andExpect(status().isOk())
@@ -813,6 +820,7 @@ class TaskControllerTest {
 
     @Test
     void updateArrayBodyOnNonExistentIdReturns400() throws Exception {
+        // 400 должен выиграть у 404: сначала проверяется тело, потом ищется задача
         mockMvc.perform(
                         put(URL + "/999999")
                                 .with(auth())
