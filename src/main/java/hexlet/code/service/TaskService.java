@@ -3,6 +3,7 @@ package hexlet.code.service;
 import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.task.TaskCreateDTO;
 import hexlet.code.dto.task.TaskDTO;
+import hexlet.code.dto.task.TaskFilterDTO;
 import hexlet.code.dto.task.TaskUpdateDTO;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
@@ -36,6 +37,7 @@ public class TaskService {
     private final LabelRepository labelRepository;
     private final TaskMapper mapper;
     private final PatchSupport patchSupport;
+    private final TaskSpecification specification;
 
     public TaskService(
             TaskRepository taskRepository,
@@ -43,17 +45,20 @@ public class TaskService {
             UserRepository userRepository,
             LabelRepository labelRepository,
             TaskMapper mapper,
-            PatchSupport patchSupport) {
+            PatchSupport patchSupport,
+            TaskSpecification specification) {
         this.taskRepository = taskRepository;
         this.taskStatusRepository = taskStatusRepository;
         this.userRepository = userRepository;
         this.labelRepository = labelRepository;
         this.mapper = mapper;
         this.patchSupport = patchSupport;
+        this.specification = specification;
     }
 
-    public List<TaskDTO> findAll() {
-        return taskRepository.findAll(Sort.by("id")).stream().map(mapper::toDto).toList();
+    public List<TaskDTO> findAll(TaskFilterDTO filter) {
+        var spec = specification.build(filter);
+        return taskRepository.findAll(spec, Sort.by("id")).stream().map(mapper::toDto).toList();
     }
 
     public TaskDTO findById(Long id) {
