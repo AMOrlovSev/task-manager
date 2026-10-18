@@ -55,6 +55,9 @@ dependencies {
 	runtimeOnly("org.postgresql:postgresql")
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
+	//Swagger
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.1")
+
 	// --- Тестовые стартеры ---
 	testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-actuator-test")
@@ -78,7 +81,11 @@ tasks.withType<Test> {
 spotless {
 	java {
 		googleJavaFormat().aosp()
-		formatAnnotations()
+		removeUnusedImports()
+		//formatAnnotations()
+		trimTrailingWhitespace()
+		endWithNewline()
+		importOrder()
 	}
 }
 
