@@ -8,6 +8,8 @@
 
 **Демо:** https://task-manager-c4wi.onrender.com
 
+**API-документация:** https://task-manager-c4wi.onrender.com/docs
+
 ## Стек
 
 - Java 21
@@ -16,6 +18,7 @@
 - Spring Data JPA
 - Spring Security
 - Spring Security OAuth2 Resource Server (JWT, RS256)
+- Springdoc OpenAPI (Swagger UI)
 - Flyway
 - Spring Boot Actuator
 - H2 (dev)
@@ -24,7 +27,7 @@
 - Gradle (Kotlin DSL)
 - JUnit 5
 - JaCoCo
-- Spotless (google-java-format, AOSP)
+- Spotless (google-java-format)
 - SonarQube Cloud
 - GitHub Actions
 - Docker
@@ -59,6 +62,8 @@ npx build-frontend
 ```
 
 Приложение: http://localhost:8080/
+
+**Swagger UI:** http://localhost:8080/docs
 
 По умолчанию активируется профиль `development` — приложение стартует
 на in-memory **H2** (PostgreSQL compatibility mode), **Flyway** накатывает
@@ -142,6 +147,51 @@ docker run --rm -p 8080:8080 \
 | `ADMIN_PASSWORD` | да | Пароль администратора, создаётся при старте |
 | `JWT_PRIVATE_KEY` | да | PEM PKCS#8 приватного RSA-ключа (см. «Аутентификация») |
 | `PORT` | нет | Порт приложения, по умолчанию `8080` |
+
+## API-документация
+
+Интерактивная документация генерируется **springdoc-openapi** (линия 3.x,
+совместима со Spring Boot 4).
+
+| Ресурс | URL (локально) | URL на Render |
+|---|---|---|
+| Swagger UI | http://localhost:8080/docs | https://task-manager-c4wi.onrender.com/docs |
+| Спецификация JSON | http://localhost:8080/api-docs | https://task-manager-c4wi.onrender.com/api-docs |
+| Спецификация YAML | http://localhost:8080/api-docs.yaml | https://task-manager-c4wi.onrender.com/api-docs.yaml |
+
+Пути кастомизированы: `/docs` и `/api-docs` вместо дефолтных
+`/swagger-ui.html` и `/v3/api-docs`. Старый `/v3/api-docs` больше
+не обслуживается.
+
+### Авторизация в Swagger UI
+
+Документация публична, но большинство эндпоинтов `/api/**` защищены
+JWT. Чтобы выполнять защищённые операции прямо из UI:
+
+1. Раскройте `POST /api/login` → **Try it out**.
+2. Введите креды администратора (dev: `hexlet@example.com` / `qwerty`).
+3. **Execute** → скопируйте токен из тела ответа.
+4. Нажмите кнопку **Authorize** в правом верхнем углу.
+5. Вставьте токен **без** префикса `Bearer` — UI добавит его сам.
+6. **Authorize** → **Close**.
+
+Теперь у защищённых операций замочек закрыт, а в запросы автоматически
+подставляется `Authorization: Bearer …`.
+
+Публичные операции — `POST /api/login`, `POST /api/users`,
+`GET /api/task_statuses`, `GET /api/task_statuses/{id}` — замочка
+не имеют и работают без токена.
+
+### Что видно в спецификации
+
+- `securitySchemes.bearerAuth` — глобальная bearer-схема;
+- теги по контроллерам (`Authentication`, `Users`, `Tasks`,
+  `Task statuses`, `Labels`);
+- заголовок `X-Total-Count` у списков;
+- явные схемы тел запросов для `PUT` (через
+  `@io.swagger.v3.oas.annotations.parameters.RequestBody`);
+- `@Schema` с описаниями и примерами у ключевых DTO
+  (`TaskCreateDTO`, `TaskDTO` и др.).
 
 ## Администратор по умолчанию
 
@@ -289,6 +339,20 @@ public UserDTO update(...) { ... }
 общее правило `anyRequest().authenticated()`. Специальных прав
 «только владелец» у меток нет: менять может любой аутентифицированный
 пользователь.
+
+## Принятые решения по безопасности
+
+- **Документация публична, API — нет.** `/docs`, `/swagger-ui/**` и
+  `/api-docs/**` открыты без токена (`permitAll` в `SecurityConfig`),
+  а все `/api/**` (кроме явно публичных `POST /api/login`,
+  `POST /api/users`, `GET /api/task_statuses`) требуют JWT. Это
+  осознанное решение для учебного проекта на Render: ревьюеру и
+  пользователю не нужен токен, чтобы прочитать контракт API, но данные
+  остаются защищены.
+- **CSRF выключен.** Классический CSRF-вектор отсутствует: JWT хранится
+  в `localStorage`, а не в cookie, и не отправляется автоматически.
+- **Тело `401` на `/api/login` одинаково для всех сценариев**
+  (`Invalid credentials`) — защита от перечисления пользователей.
 
 ## Статусы задач
 
@@ -739,6 +803,7 @@ PostgreSQL в Docker-контейнере, накатывают Flyway-мигр�
 не требуют:
 
 - `AppApplicationTests`, `WelcomeControllerTest`
+- `OpenApiTest` — спецификация, пути, security-метаданные
 - `PemKeyParserTest`
 - `UserServiceTest`, `UserMapperTest`
 - `TaskStatusServiceTest`, `TaskStatusMapperTest`
@@ -751,6 +816,7 @@ PostgreSQL в Docker-контейнере, накатывают Flyway-мигр�
 ```bash
 ./gradlew test jacocoTestReport
 ```
+
 HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 
 ### Форматирование (Spotless)
@@ -775,10 +841,18 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 Базовые пути: `/api/users`, `/api/task_statuses`, `/api/labels`, `/api/tasks`.
 Защищённые эндпоинты требуют заголовок `Authorization: Bearer <JWT>`.
 
+**Интерактивная документация:** `/docs` (Swagger UI),
+`/api-docs` (JSON), `/api-docs.yaml` (YAML). См. раздел
+«API-документация».
+
 | Метод | Путь | Тело запроса | Успешный ответ | Auth | Описание |
 |---|---|---|---|---|---|
 | `GET` | `/` | — | `200` HTML (SPA) | — | SPA-страница |
 | `GET` | `/assets/**` | — | `200` JS/CSS | — | Статика SPA |
+| `GET` | `/docs` | — | `302` → `/swagger-ui/index.html` | — | Swagger UI (точка входа) |
+| `GET` | `/swagger-ui/**` | — | `200` JS/CSS | — | Статика Swagger UI |
+| `GET` | `/api-docs` | — | `200` JSON | — | OpenAPI-спецификация |
+| `GET` | `/api-docs.yaml` | — | `200` YAML | — | OpenAPI-спецификация в YAML |
 | `GET` | `/welcome` | — | `200` text | — | Приветствие |
 | `GET` | `/actuator/health` | — | `200` JSON | — | Статус приложения |
 | `POST` | `/api/login` | JSON | `200` text (JWT) | — | Аутентификация, возвращает JWT |
