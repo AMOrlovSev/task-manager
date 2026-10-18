@@ -141,6 +141,7 @@ class SecurityTest {
 
     @Test
     void expiredTokenReturns401() throws Exception {
+        // iat = now - 2h, exp = iat + 1h => exp < now, far past 60s skew of Nimbus
         var user = persistUser("u@x.com", "qwerty123");
         var token = expiredToken(user);
 
@@ -308,6 +309,7 @@ class SecurityTest {
         var attacker = persistUser("attacker@x.com", "qwerty123");
         var token = validToken(attacker);
 
+        // 999999 не существует, но авторизация должна сработать раньше поиска
         mockMvc.perform(
                         put("/api/users/999999")
                                 .header("Authorization", "Bearer " + token)

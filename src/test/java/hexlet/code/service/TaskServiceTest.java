@@ -498,6 +498,7 @@ class TaskServiceTest {
         when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
+        // labels и assigneeId (camelCase) — не поля TaskUpdateDTO, должны быть проигнорированы
         var result =
                 service.update(
                         1L,
