@@ -13,6 +13,7 @@ import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -29,6 +30,7 @@ class TaskSpecificationTest {
     @Autowired private TaskStatusRepository taskStatusRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private LabelRepository labelRepository;
+    @Autowired private EntityManager entityManager;
 
     private final TaskSpecification spec = new TaskSpecification();
 
@@ -122,10 +124,19 @@ class TaskSpecificationTest {
     void labelFilterMatchesLinkedLabel() {
         var s = saveStatus("Lbl", "lbl-spec");
         var label = saveLabel("spec-lbl");
+        var otherLabel = saveLabel("other-lbl");
+
         var withLabel = saveTask("WithLabel", s, null);
         withLabel.getLabels().add(label);
+        withLabel.getLabels().add(otherLabel);
         taskRepository.saveAndFlush(withLabel);
+
         saveTask("WithoutLabel", s, null);
+
+        // Выгружаем persistence context, чтобы findAll реально шёл в БД,
+        // а не возвращал задачу с коллекцией labels из памяти.
+        entityManager.flush();
+        entityManager.clear();
 
         var result =
                 taskRepository.findAll(
@@ -133,7 +144,10 @@ class TaskSpecificationTest {
                         Sort.by("id"));
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getName()).isEqualTo("WithLabel");
+        var found = result.get(0);
+        assertThat(found.getName()).isEqualTo("WithLabel");
+        // Метки не должны урезаться до той, по которой фильтровали
+        assertThat(found.getLabels()).hasSize(2);
     }
 
     @Test
