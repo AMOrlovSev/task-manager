@@ -49,10 +49,20 @@ public class TaskSpecification {
         if (id == null) {
             return Specification.unrestricted();
         }
-        return (root, query, cb) -> cb.equal(root.join("labels").get("id"), id);
+        return (root, query, cb) -> {
+            var subquery = query.subquery(Long.class);
+            var task = subquery.from(Task.class);
+            var labels = task.join("labels");
+            subquery.select(task.get("id"))
+                    .where(cb.equal(task.get("id"), root.get("id")),
+                            cb.equal(labels.get("id"), id));
+            return cb.exists(subquery);
+        };
     }
 
     private String escapeLike(String value) {
-        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return value.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 }
