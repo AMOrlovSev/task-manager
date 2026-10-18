@@ -55,6 +55,7 @@ public class TaskController {
     }
 
     @Operation(summary = "Создание задачи")
+    @ApiResponse(responseCode = "201", description = "Задача создана")
     @ApiResponse(responseCode = "400", description = "Невалидное тело запроса")
     @PostMapping
     public ResponseEntity<TaskDTO> create(@Valid @RequestBody TaskCreateDTO dto) {

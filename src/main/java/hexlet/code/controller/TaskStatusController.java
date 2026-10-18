@@ -54,6 +54,7 @@ public class TaskStatusController {
     }
 
     @Operation(summary = "Создание статуса")
+    @ApiResponse(responseCode = "201", description = "Статус создан")
     @ApiResponse(responseCode = "400", description = "Невалидное тело запроса")
     @PostMapping
     public ResponseEntity<TaskStatusDTO> create(@Valid @RequestBody TaskStatusCreateDTO dto) {

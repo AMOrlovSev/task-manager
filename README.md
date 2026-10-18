@@ -160,8 +160,8 @@ docker run --rm -p 8080:8080 \
 | Спецификация YAML | http://localhost:8080/api-docs.yaml | https://task-manager-c4wi.onrender.com/api-docs.yaml |
 
 Пути кастомизированы: `/docs` и `/api-docs` вместо дефолтных
-`/swagger-ui.html` и `/v3/api-docs`. Старый `/v3/api-docs` больше
-не обслуживается.
+`/swagger-ui.html` и `/v3/api-docs`. Старый /v3/api-docs больше не существует как эндпоинт. 
+Без токена запрос к нему перехватывается security и возвращает 401 — это побочный эффект anyRequest().authenticated(), а не признак того, что путь жив. С валидным токеном springdoc отвечает 404.
 
 ### Авторизация в Swagger UI
 

@@ -53,6 +53,7 @@ public class LabelController {
     }
 
     @Operation(summary = "Создание метки")
+    @ApiResponse(responseCode = "201", description = "Метка создана")
     @ApiResponse(responseCode = "400", description = "Невалидное тело запроса")
     @PostMapping
     public ResponseEntity<LabelDTO> create(@Valid @RequestBody LabelCreateDTO dto) {
@@ -77,6 +78,7 @@ public class LabelController {
     }
 
     @Operation(summary = "Удаление метки")
+    @ApiResponse(responseCode = "204", description = "Метка удалена")
     @ApiResponse(responseCode = "409", description = "Метка используется в задачах")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {

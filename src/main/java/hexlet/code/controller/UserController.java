@@ -60,6 +60,7 @@ public class UserController {
 
     @Operation(summary = "Регистрация пользователя")
     @SecurityRequirements
+    @ApiResponse(responseCode = "201", description = "Пользователь создан")
     @PostMapping
     public ResponseEntity<UserDTO> create(@Valid @RequestBody UserCreateDTO dto) {
         UserDTO created = userService.create(dto);
