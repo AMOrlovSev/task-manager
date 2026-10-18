@@ -2,7 +2,15 @@ package hexlet.code.controller;
 
 import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
+import hexlet.code.dto.user.UserUpdateDTO;
 import hexlet.code.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
@@ -21,6 +29,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.JsonNode;
 
+@Tag(name = "Users", description = "Управление пользователями")
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -31,6 +40,10 @@ public class UserController {
         this.userService = userService;
     }
 
+    @Operation(summary = "Список пользователей")
+    @ApiResponse(
+            responseCode = "200",
+            headers = @Header(name = "X-Total-Count", description = "Всего записей"))
     @GetMapping
     public ResponseEntity<List<UserDTO>> index() {
         List<UserDTO> users = userService.findAll();
@@ -39,23 +52,36 @@ public class UserController {
                 .body(users);
     }
 
+    @Operation(summary = "Пользователь по id")
     @GetMapping("/{id}")
     public UserDTO show(@PathVariable Long id) {
         return userService.findById(id);
     }
 
+    @Operation(summary = "Регистрация пользователя")
+    @SecurityRequirements
     @PostMapping
     public ResponseEntity<UserDTO> create(@Valid @RequestBody UserCreateDTO dto) {
         UserDTO created = userService.create(dto);
         return ResponseEntity.created(URI.create("/api/users/" + created.id())).body(created);
     }
 
+    @Operation(
+            summary = "Частичное обновление пользователя",
+            requestBody =
+                    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                            content =
+                                    @Content(
+                                            schema =
+                                                    @Schema(implementation = UserUpdateDTO.class))))
+    @ApiResponse(responseCode = "400", description = "Невалидное тело запроса")
     @PutMapping(path = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("#id.toString() == authentication.name")
     public UserDTO update(@PathVariable Long id, @RequestBody JsonNode patchNode) {
         return userService.update(id, patchNode);
     }
 
+    @Operation(summary = "Удаление пользователя")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("#id.toString() == authentication.name")
