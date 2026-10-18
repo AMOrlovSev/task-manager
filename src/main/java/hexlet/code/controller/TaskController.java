@@ -2,6 +2,7 @@ package hexlet.code.controller;
 
 import hexlet.code.dto.task.TaskCreateDTO;
 import hexlet.code.dto.task.TaskDTO;
+import hexlet.code.dto.task.TaskFilterDTO;
 import hexlet.code.dto.task.TaskUpdateDTO;
 import hexlet.code.service.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,13 +40,13 @@ public class TaskController {
         this.service = service;
     }
 
-    @Operation(summary = "Список задач")
+    @Operation(summary = "Список задач с фильтрами")
     @ApiResponse(
             responseCode = "200",
             headers = @Header(name = "X-Total-Count", description = "Всего записей"))
     @GetMapping
-    public ResponseEntity<List<TaskDTO>> index() {
-        List<TaskDTO> list = service.findAll();
+    public ResponseEntity<List<TaskDTO>> index(@ParameterObject TaskFilterDTO filter) {
+        var list = service.findAll(filter);
         return ResponseEntity.ok().header("X-Total-Count", String.valueOf(list.size())).body(list);
     }
 

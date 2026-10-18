@@ -3,6 +3,7 @@ package hexlet.code.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.when;
 import hexlet.code.component.PatchSupport;
 import hexlet.code.dto.task.TaskCreateDTO;
 import hexlet.code.dto.task.TaskDTO;
+import hexlet.code.dto.task.TaskFilterDTO;
 import hexlet.code.exception.ResourceNotFoundException;
 import hexlet.code.exception.ValidationException;
 import hexlet.code.mapper.TaskMapperImpl;
@@ -36,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -46,11 +49,12 @@ class TaskServiceTest {
     @Mock private TaskRepository taskRepository;
     @Mock private TaskStatusRepository taskStatusRepository;
     @Mock private UserRepository userRepository;
-    @Mock private LabelRepository labelRepository; // STEP 9
+    @Mock private LabelRepository labelRepository;
 
     private TaskMapperImpl mapper;
     private JsonMapper jsonMapper;
     private PatchSupport patchSupport;
+    private TaskSpecification specification;
     private TaskService service;
 
     @BeforeEach
@@ -62,6 +66,7 @@ class TaskServiceTest {
                         .build();
         Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
         patchSupport = new PatchSupport(jsonMapper, validator);
+        specification = new TaskSpecification();
         service =
                 new TaskService(
                         taskRepository,
@@ -69,7 +74,8 @@ class TaskServiceTest {
                         userRepository,
                         labelRepository,
                         mapper,
-                        patchSupport);
+                        patchSupport,
+                        specification);
     }
 
     // ============================ findAll ============================
@@ -79,9 +85,10 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var t1 = existingTask(1L, "Task1", status, null);
         var t2 = existingTask(2L, "Task2", status, null);
-        when(taskRepository.findAll(Sort.by("id"))).thenReturn(List.of(t1, t2));
+        when(taskRepository.findAll(any(Specification.class), eq(Sort.by("id"))))
+                .thenReturn(List.of(t1, t2));
 
-        var result = service.findAll();
+        var result = service.findAll(new TaskFilterDTO(null, null, null, null));
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(TaskDTO::title).containsExactly("Task1", "Task2");
@@ -90,8 +97,10 @@ class TaskServiceTest {
 
     @Test
     void findAllReturnsEmptyList() {
-        when(taskRepository.findAll(Sort.by("id"))).thenReturn(List.of());
-        assertThat(service.findAll()).isEmpty();
+        when(taskRepository.findAll(any(Specification.class), eq(Sort.by("id"))))
+                .thenReturn(List.of());
+
+        assertThat(service.findAll(new TaskFilterDTO(null, null, null, null))).isEmpty();
     }
 
     // ============================ findById ============================
@@ -296,8 +305,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"title": {"a": 1}}""")))
+"""
+{"title": {"a": 1}}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("body"));
@@ -318,8 +327,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"title": null}""")))
+"""
+{"title": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -338,8 +347,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"title": "   "}""")))
+"""
+{"title": "   "}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -358,8 +367,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"status": null}""")))
+"""
+{"status": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -380,7 +389,7 @@ class TaskServiceTest {
                                         1L,
                                         patch(
                                                 """
-                {"content": "%s"}"""
+        {"content": "%s"}"""
                                                         .formatted(content))))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -556,8 +565,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"status": "nope"}""")))
+"""
+{"status": "nope"}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -638,8 +647,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"assignee_id": 999}""")))
+"""
+{"assignee_id": 999}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("assignee_id"));
@@ -766,8 +775,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"taskLabelIds": [999]}""")))
+"""
+{"taskLabelIds": [999]}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("taskLabelIds"));
@@ -786,8 +795,8 @@ class TaskServiceTest {
                                 service.update(
                                         999L,
                                         patch(
-                                                """
-        {"title": "X"}""")))
+"""
+{"title": "X"}""")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
     }
@@ -810,7 +819,8 @@ class TaskServiceTest {
         assertThatThrownBy(() -> service.delete(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
 
-        verify(taskRepository, never()).delete(any());
+        verify(taskRepository, never()).delete(any(Task.class));
+        verify(taskRepository, never()).deleteById(any());
     }
 
     // ============================ helpers ============================

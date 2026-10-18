@@ -1,6 +1,7 @@
 package hexlet.code.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -25,6 +26,7 @@ import hexlet.code.repository.LabelRepository;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
 import hexlet.code.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +53,7 @@ class TaskControllerTest {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private LabelRepository labelRepository;
+    @Autowired private EntityManager entityManager;
 
     // ============================ GET list ============================
 
@@ -88,6 +91,215 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].title").value("A"))
                 .andExpect(jsonPath("$[1].title").value("B"));
+    }
+
+    // ============================ GET list — filters ============================
+
+    @Test
+    void filterByTitleContMatchesSubstringAndIgnoresCase() throws Exception {
+        persistTask("Create new version", null, null, draft(), null);
+        persistTask("Another task", null, null, draft(), null);
+        persistTask("Unrelated", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("titleCont", "create").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Create new version"));
+
+        mockMvc.perform(get(URL).param("titleCont", "NEW").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Create new version"));
+
+        mockMvc.perform(get(URL).param("titleCont", "eate").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Create new version"));
+    }
+
+    @Test
+    void filterByTitleContEscapesPercent() throws Exception {
+        persistTask("100% done", null, null, draft(), null);
+        persistTask("100 done", null, null, draft(), null);
+        persistTask("1000 done", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("titleCont", "100%").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("100% done"));
+    }
+
+    @Test
+    void filterByTitleContEscapesUnderscore() throws Exception {
+        persistTask("a_b", null, null, draft(), null);
+        persistTask("axb", null, null, draft(), null);
+        persistTask("aXXb", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("titleCont", "a_b").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("a_b"));
+    }
+
+    @Test
+    void filterByAssigneeId() throws Exception {
+        var user = persistUser("u-f1@x.com", "qwerty123");
+        persistTask("Assigned", null, null, draft(), user);
+        persistTask("Unassigned", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("assigneeId", user.getId().toString()).with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Assigned"))
+                .andExpect(jsonPath("$[0].assignee_id").value(user.getId()));
+    }
+
+    @Test
+    void filterByStatus() throws Exception {
+        var other = persistStatus("FilterStatus", "filter-status");
+        persistTask("Draft", null, null, draft(), null);
+        persistTask("Other", null, null, other, null);
+
+        mockMvc.perform(get(URL).param("status", "draft").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Draft"))
+                .andExpect(jsonPath("$[0].status").value("draft"));
+    }
+
+    @Test
+    void filterByLabelId() throws Exception {
+        var label = persistLabel("filter-lbl");
+        var withLabel = persistTask("With label", null, null, draft(), null);
+        withLabel.getLabels().add(label);
+        taskRepository.save(withLabel);
+        persistTask("Without label", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("labelId", label.getId().toString()).with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("With label"));
+    }
+
+    @Test
+    void filterByAllParamsCombinedWithAnd() throws Exception {
+        var user = persistUser("u-combo@x.com", "qwerty123");
+        var label = persistLabel("combo-lbl");
+        var otherStatus = persistStatus("OtherCombo", "other-combo");
+
+        var matching = persistTask("match-target", null, null, draft(), user);
+        matching.getLabels().add(label);
+        taskRepository.save(matching);
+
+        var wrongTitle = persistTask("different", null, null, draft(), user);
+        wrongTitle.getLabels().add(label);
+        taskRepository.save(wrongTitle);
+
+        var wrongStatus = persistTask("match-target", null, null, otherStatus, user);
+        wrongStatus.getLabels().add(label);
+        taskRepository.save(wrongStatus);
+
+        var wrongAssignee = persistTask("match-target", null, null, draft(), null);
+        wrongAssignee.getLabels().add(label);
+        taskRepository.save(wrongAssignee);
+
+        persistTask("match-target", null, null, draft(), user);
+
+        mockMvc.perform(
+                        get(URL).param("titleCont", "match")
+                                .param("status", "draft")
+                                .param("assigneeId", user.getId().toString())
+                                .param("labelId", label.getId().toString())
+                                .with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("match-target"));
+    }
+
+    @Test
+    void filterEmptyAndBlankValuesAreIgnored() throws Exception {
+        persistTask("A", null, null, draft(), null);
+        persistTask("B", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("titleCont", "").param("status", "   ").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$", hasSize(2)));
+    }
+
+    @Test
+    void filterUnknownStatusReturnsEmptyList() throws Exception {
+        persistTask("Any", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("status", "no-such-status").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "0"))
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void filterUnknownLabelIdReturnsEmptyList() throws Exception {
+        persistTask("Any", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("labelId", "999999").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void filterUnknownAssigneeIdReturnsEmptyList() throws Exception {
+        persistTask("Any", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("assigneeId", "999999").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void filterWithNonNumericAssigneeIdReturns400() throws Exception {
+        mockMvc.perform(get(URL).param("assigneeId", "abc").with(auth()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filterWithNonNumericLabelIdReturns400() throws Exception {
+        mockMvc.perform(get(URL).param("labelId", "abc").with(auth()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filterLabelIdDoesNotTrimOtherLabels() throws Exception {
+        var l1 = persistLabel("trim-lbl-1");
+        var l2 = persistLabel("trim-lbl-2");
+        var task = persistTask("Multi-label", null, null, draft(), null);
+        task.getLabels().add(l1);
+        task.getLabels().add(l2);
+        taskRepository.save(task);
+
+        // Выгружаем persistence context, чтобы findAll реально шёл в БД,
+        // а не возвращал задачу с коллекцией labels из памяти.
+        entityManager.flush();
+        entityManager.clear();
+
+        mockMvc.perform(get(URL).param("labelId", l1.getId().toString()).with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(
+                        jsonPath(
+                                "$[0].taskLabelIds",
+                                containsInAnyOrder(l1.getId().intValue(), l2.getId().intValue())));
+    }
+
+    @Test
+    void filterWithoutTokenReturns401() throws Exception {
+        mockMvc.perform(get(URL).param("titleCont", "x")).andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get(URL).param("labelId", "1")).andExpect(status().isUnauthorized());
     }
 
     // ============================ GET by id ============================
@@ -926,13 +1138,13 @@ class TaskControllerTest {
         assertThat(labelRepository.findById(label.getId())).isPresent();
     }
 
+    // ============================ helpers ============================
+
     private Label persistLabel(String name) {
         var l = new Label();
         l.setName(name);
         return labelRepository.save(l);
     }
-
-    // ============================ helpers ============================
 
     private TaskStatus draft() {
         return taskStatusRepository.findBySlug("draft").orElseThrow();

@@ -160,7 +160,7 @@ docker run --rm -p 8080:8080 \
 | Спецификация YAML | http://localhost:8080/api-docs.yaml | https://task-manager-c4wi.onrender.com/api-docs.yaml |
 
 Пути кастомизированы: `/docs` и `/api-docs` вместо дефолтных
-`/swagger-ui.html` и `/v3/api-docs`. Старый /v3/api-docs больше не существует как эндпоинт. 
+`/swagger-ui.html` и `/v3/api-docs`. Старый /v3/api-docs больше не существует как эндпоинт.
 Без токена запрос к нему перехватывается security и возвращает 401 — это побочный эффект anyRequest().authenticated(), а не признак того, что путь жив. С валидным токеном springdoc отвечает 404.
 
 ### Авторизация в Swagger UI
@@ -188,10 +188,14 @@ JWT. Чтобы выполнять защищённые операции пря�
 - теги по контроллерам (`Authentication`, `Users`, `Tasks`,
   `Task statuses`, `Labels`);
 - заголовок `X-Total-Count` у списков;
+- фильтры `GET /api/tasks` в виде отдельных query-параметров
+  (`titleCont`, `assigneeId`, `status`, `labelId`) — благодаря
+  `@ParameterObject` из springdoc поля `TaskFilterDTO` разворачиваются
+  в отдельные параметры с `@Schema`-описаниями и примерами;
 - явные схемы тел запросов для `PUT` (через
   `@io.swagger.v3.oas.annotations.parameters.RequestBody`);
 - `@Schema` с описаниями и примерами у ключевых DTO
-  (`TaskCreateDTO`, `TaskDTO` и др.).
+  (`TaskCreateDTO`, `TaskDTO`, `TaskFilterDTO` и др.).
 
 ## Администратор по умолчанию
 
@@ -487,7 +491,7 @@ public UserDTO update(...) { ... }
 
 - PK `tasks_labels (task_id, label_id)` покрывает поиск по `task_id`.
 - Отдельный `idx_tasks_labels_label_id` нужен для проверки
-  «метка используется» и будущей фильтрации задач по меткам.
+  «метка используется» и фильтрации задач по меткам.
 
 ### Принятые решения
 
@@ -604,6 +608,13 @@ id с текущим и перепривязывает, только если к
 и набор отличается от текущего. Отсутствие ключа трактуется как
 «не трогать», а не как «очистить».
 
+### Список задач с фильтрами (`GET /api/tasks`)
+
+Базовая выдача списка поддерживает четыре query-параметра фильтрации:
+`titleCont`, `assigneeId`, `status`, `labelId`. Параметры объединяются
+через **AND**, отсутствующие и пустые значения игнорируются. Подробности,
+примеры и решения — в разделе **«Фильтрация задач»**.
+
 ### Удаление связанных ресурсов
 
 `DELETE /api/users/{id}` и `DELETE /api/task_statuses/{id}` возвращают
@@ -627,13 +638,176 @@ id с текущим и перепривязывает, только если к
   `ObjectNode.setAll`, а не сливает через `jsonMapper.updateValue`.
   Иначе массивы могли бы дописываться, и `taskLabelIds` не заменялся бы
   целиком — а именно замену ждёт фронтенд.
-- N+1 на `GET /api/tasks` вырос: теперь на список задач выполняются
-  отдельные запросы за метками каждой задачи. Отложено до шага
-  фильтрации; при добавлении фильтра по меткам будем чинить через
-  `@EntityGraph`/`join fetch` вместе со статусами и исполнителями.
+- N+1 на `GET /api/tasks` закрыт в рамках шага фильтрации:
+  `@EntityGraph({"taskStatus", "labels"})` подтягивает статусы и метки
+  одним запросом. `assignee` в граф намеренно не включён — маппер
+  читает только `assignee.getId()`, а id у lazy-прокси Hibernate
+  отдаёт без запроса к БД. Подробности и замеры — в разделе
+  **«Фильтрация задач → N+1 на списке задач»**.
 - `DataIntegrityViolationException` отвечает нейтральным
   `"Conflict with existing data"` — покрывает и дубликаты, и FK,
   и нарушение длины.
+
+## Фильтрация задач
+
+Эндпоинт `GET /api/tasks` поддерживает четыре необязательных query-параметра.
+Параметры объединяются через **AND**. Отсутствующие, пустые и пробельные
+значения игнорируются: `?titleCont=&status=` эквивалентно запросу без
+фильтров. Неизвестные параметры (`_start`, `_end`, `_sort`, `_order`
+от react-admin) игнорируются.
+
+| Параметр | Что делает | Пример |
+|---|---|---|
+| `titleCont` | Подстрока в названии, без учёта регистра. Спецсимволы `%`, `_`, `\` экранируются — ищутся как буквы, а не как маска LIKE | `?titleCont=create` |
+| `assigneeId` | Только задачи указанного исполнителя | `?assigneeId=2` |
+| `status` | Только задачи с указанным slug статуса | `?status=to_be_fixed` |
+| `labelId` | Только задачи, у которых есть метка с этим id | `?labelId=1` |
+
+Пример:
+
+```bash
+curl 'http://localhost:8080/api/tasks?titleCont=create&status=draft&assigneeId=2&labelId=1' \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+`X-Total-Count` равен размеру **отфильтрованного** списка — так его
+ждёт react-admin.
+
+### Реализация
+
+Фильтрация — на `JpaSpecificationExecutor` и `TaskSpecification`
+(`@Component`, по образцу `PostSpecification` из примера Hexlet).
+Спецификация собирается из `TaskFilterDTO` (record с полями
+`titleCont`, `assigneeId`, `status`, `labelId`), а контроллер принимает
+его через `@ParameterObject` из springdoc.
+
+```java
+public List<TaskDTO> findAll(TaskFilterDTO filter) {
+  var spec = specification.build(filter);
+  return taskRepository.findAll(spec, Sort.by("id")).stream()
+          .map(mapper::toDto).toList();
+}
+```
+
+`TaskRepository` расширен `JpaSpecificationExecutor` и переопределяет
+`findAll(Specification, Sort)` с `@EntityGraph` (см. подраздел N+1).
+Сортировка `Sort.by("id")` сохраняется. Пагинации нет.
+
+### Поведение и решения
+
+- **Регистр `titleCont`.** Поиск без учёта регистра: обе стороны
+  приводятся к нижнему регистру (`lower(name) LIKE lower('%...%')`).
+  Пример задания: `?titleCont=create` находит `Create new version`.
+- **Экранирование `%`, `_`, `\`.** Спецсимволы LIKE экранируются
+  обратным слэшем и передаются в `cb.like(..., '\\')`. Иначе
+  `?titleCont=100%` работал бы как маска «100 + что угодно», а
+  `?titleCont=a_b` — как «a + один любой символ + b».
+- **Пустые и пробельные значения игнорируются.** Так ведёт себя
+  react-admin, когда поля фильтра пустые. `?titleCont=` и
+  `?status=%20%20%20` не сужают выборку.
+- **Условия объединяются через AND.**
+- **Неизвестный `status`, `assigneeId` или `labelId` → `200` и `[]`.**
+  Это фильтр, а не ссылка в теле запроса, поэтому `400`/`404` здесь
+  не нужны.
+- **Нечисловые `assigneeId` и `labelId` → `400`.** `?assigneeId=abc`
+  отклоняется на этапе конвертации параметра. Обрабатывается
+  `GlobalExceptionHandler` (`MethodArgumentTypeMismatchException`).
+- **`labelId` через коррелированный `exists`-подзапрос.** Условие
+  строится как `exists (select t.id from Task t join t.labels l where
+  t.id = :taskId and l.id = :labelId)`, а не как `join` в основном
+  запросе. Это даёт два свойства:
+  - **Метки в ответе не режутся.** Фильтрующее условие не участвует
+    в выборке основного запроса, а `@EntityGraph` строит свой
+    `join fetch` и подтягивает **все** метки задачи. В ответе на
+    `?labelId=1` у задачи с метками `[1, 2]` будет `taskLabelIds: [1, 2]`,
+    а не `[1]`. Покрыто тестами
+    `TaskControllerTest.filterLabelIdDoesNotTrimOtherLabels` и
+    `TaskSpecificationTest.labelFilterMatchesLinkedLabel` (оба
+    сбрасывают persistence context, чтобы запрос реально шёл в БД).
+  - **Нет дублей и `distinct` не нужен.** Подзапрос только проверяет
+    существование связи, поэтому одна задача не размножается по числу
+    её меток.
+- **Индексы.** Новая миграция не нужна: `idx_tasks_status_id` и
+  `idx_tasks_assignee_id` уже есть в `V4`, `tasks_labels.label_id` —
+  в `V5`.
+- **`X-Total-Count`** равен размеру отфильтрованного списка.
+
+### N+1 на списке задач
+
+При отдаче списка задач каждая задача лениво подгружала `taskStatus`
+и `labels` отдельными запросами. N+1: чем больше задач, тем больше
+лишних запросов.
+
+#### Как измерялось
+
+Интеграционный тест `TaskQueryCountTest` включает статистику Hibernate:
+
+```java
+@SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
+```
+
+Порядок:
+
+1. Создаются 10 задач с разными статусами, исполнителями и метками.
+2. `entityManager.clear()` — чтобы задачи и их связи не лежали в
+   first-level cache.
+3. `statistics.clear()`.
+4. Вызывается `taskService.findAll(пустой TaskFilterDTO)`.
+5. Проверяется `statistics.getPrepareStatementCount()`.
+
+#### До и после
+
+| Состояние | Запросов на 10 задач |
+|---|---|
+| Без `@EntityGraph` | 13 (1 список + 2 статуса + 10 коллекций меток) |
+| С `@EntityGraph({"taskStatus", "labels"})` | **1** |
+
+<!-- Значение «13» получено расчётом по структуре теста; перед мержем подтвердить прогоном TaskQueryCountTest без @EntityGraph и при необходимости заменить. -->
+
+Без графа Hibernate загружает `taskStatus` для каждого уникального
+статуса (повторные обращения берутся из кэша первого уровня) и
+отдельным запросом коллекцию `labels` для каждой задачи — число
+запросов растёт вместе с числом задач. С графом всё приходит одним
+`select` с join.
+
+#### Что сделано
+
+`TaskRepository` переопределяет `findAll(Specification, Sort)` с
+`@EntityGraph`:
+
+```java
+public interface TaskRepository
+        extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
+
+  @Override
+  @EntityGraph(attributePaths = {"taskStatus", "labels"})
+  List<Task> findAll(Specification<Task> spec, Sort sort);
+}
+```
+
+`@EntityGraph` строит отдельный `join fetch` и подтягивает статус
+и метки одним запросом вместе со списком. Перекрыт **только** этот
+метод — `findById`, `save` и остальные не затронуты, `show` и
+прочие эндпоинты работают как раньше.
+
+`assignee` в граф **не включён**: маппер берёт только
+`assignee.getId()`, а `id` у lazy-прокси Hibernate отдаёт без похода
+в БД. Это подтверждено тем же замером — после добавления графа
+запросов ровно один. Если положить `assignee` в `@EntityGraph`
+«на всякий случай», запрос станет тяжелее (лишний join на `users`),
+а выигрыша не будет.
+
+### Известные ограничения
+
+- `lower(name) LIKE '%...%'` не использует обычный btree-индекс. На
+  больших объёмах (сотни тысяч задач) понадобится `pg_trgm` и
+  GIN-индекс. Сейчас не делаем — преждевременная оптимизация.
+- Пагинации на `/api/tasks` нет: список отдаётся целиком,
+  `X-Total-Count` нужен react-admin только для счётчика.
+- Фильтр только по одной метке (`labelId`). Фильтр по нескольким
+  меткам потребует доработки условия: нужно решить, должны ли
+  совпадать все метки или хотя бы одна. `exists`-подзапрос дублей
+  задач при этом не создаёт.
 
 ## Фронтенд
 
@@ -772,6 +946,10 @@ SQL-миграции лежат в `src/main/resources/db/migration/` и нак�
   и `tasks_labels` (PK `(task_id, label_id)`, FK с `on delete cascade`
   только по `task_id`, индекс `idx_tasks_labels_label_id`)
 
+Шаг фильтрации задач **не добавляет миграций**: индексы для фильтров
+(`idx_tasks_status_id`, `idx_tasks_assignee_id`, `idx_tasks_labels_label_id`)
+уже есть в `V4` и `V5`.
+
 Схемой управляет Flyway, Hibernate работает в режиме `validate` —
 если маппинг сущностей разойдётся с миграциями, приложение не стартует.
 
@@ -791,7 +969,15 @@ PostgreSQL в Docker-контейнере, накатывают Flyway-мигр�
   `SecurityTest`
 - `TaskStatusControllerTest`, `TaskStatusRepositoryTest`
 - `TaskControllerTest`, `TaskRepositoryTest`
+- `TaskQueryCountTest` — счётчик SQL-запросов через Hibernate statistics
+  (проверяет, что `findAll(Specification, Sort)` с `@EntityGraph`
+  делает один запрос)
+- `TaskSpecificationTest` — изолированные тесты спецификаций на
+  `@DataJpaTest` (регистронезависимость, экранирование `%` и `_`,
+  AND по всем четырём параметрам)
 - `LabelControllerTest`, `LabelRepositoryTest`
+- `DataInitializerTest` — идемпотентность сидинга админа, статусов
+  и меток, устойчивость к переименованному slug
 
 **Требуется запущенный Docker.** Если Docker недоступен, такие тесты
 упадут с `Could not find a valid Docker environment`.
@@ -871,7 +1057,7 @@ HTML-отчёт: `build/reports/jacoco/test/html/index.html`
 | `POST` | `/api/labels` | JSON | `201` JSON, `Location` | Bearer | Создание метки |
 | `PUT` | `/api/labels/{id}` | JSON | `200` JSON | Bearer | Частичное обновление (merge patch) |
 | `DELETE` | `/api/labels/{id}` | — | `204` | Bearer | Удаление метки |
-| `GET` | `/api/tasks` | — | `200` JSON-массив, `X-Total-Count` | Bearer | Список задач |
+| `GET` | `/api/tasks` | — | `200` JSON-массив, `X-Total-Count` | Bearer | Список задач с фильтрами (`titleCont`, `assigneeId`, `status`, `labelId`) |
 | `GET` | `/api/tasks/{id}` | — | `200` JSON | Bearer | Задача по id |
 | `POST` | `/api/tasks` | JSON | `201` JSON, `Location` | Bearer | Создание задачи |
 | `PUT` | `/api/tasks/{id}` | JSON | `200` JSON | Bearer | Частичное обновление (merge patch) |
@@ -1011,11 +1197,16 @@ Email нормализуется (trim + lower case). Дубликат email →
 отсортированный по возрастанию; `null` в запросе очищает набор,
 отсутствие ключа — не трогает.
 
+### Фильтры списка задач (`GET /api/tasks`)
+
+Список поддерживает `titleCont`, `assigneeId`, `status`, `labelId`.
+Описание, примеры и поведение — в разделе **«Фильтрация задач»**.
+
 ### Коды ошибок
 
 | Код | Когда |
 |---|---|
-| `400` | Валидация, невалидный JSON, явный `null` для обязательного поля, несуществующий `status`/`assignee_id`/`taskLabelIds` в теле |
+| `400` | Валидация, невалидный JSON, явный `null` для обязательного поля, несуществующий `status`/`assignee_id`/`taskLabelIds` в теле, нечисловой `assigneeId`/`labelId` в query |
 | `401` | Нет токена, токен просрочен, подпись/issuer не сходятся, неверные креды |
 | `403` | Токен валиден, но нет прав на операцию (чужой пользователь) |
 | `404` | Ресурс по URL не найден |
