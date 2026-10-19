@@ -443,8 +443,9 @@ class TaskControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("Создать отчёт"));
 
-        // Дополнительно проверяем, что и в БД сохранено обрезанное значение:
-        // createTrimsTitle смотрит только на ответ, а тут — состояние после save().
+        entityManager.flush();
+        entityManager.clear();
+
         assertThat(taskRepository.findAll().stream().map(Task::getName).toList())
                 .containsExactly("Создать отчёт");
     }

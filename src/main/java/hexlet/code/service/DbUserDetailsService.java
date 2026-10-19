@@ -23,13 +23,10 @@ public class DbUserDetailsService implements UserDetailsService {
         String normalized = username.trim().toLowerCase();
         return userRepository
                 .findByEmail(normalized)
-                .map(
+                .<UserDetails>map(
                         user ->
-                                (UserDetails)
-                                        new AppUserDetails(
-                                                user.getId(),
-                                                user.getEmail(),
-                                                user.getPasswordDigest()))
+                                new AppUserDetails(
+                                        user.getId(), user.getEmail(), user.getPasswordDigest()))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + normalized));
     }
 }

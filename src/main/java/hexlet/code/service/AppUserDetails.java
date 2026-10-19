@@ -21,4 +21,9 @@ public record AppUserDetails(Long id, String email, String passwordDigest) imple
     public String getUsername() {
         return email;
     }
+
+    @Override
+    public String toString() {
+        return "AppUserDetails[id=" + id + ", email=" + email + "]";
+    }
 }
