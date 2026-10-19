@@ -1,5 +1,9 @@
 package hexlet.code.controller;
 
+import hexlet.code.component.PageableFactory;
+import hexlet.code.dto.common.ListParams;
+import hexlet.code.dto.common.PageResponses;
+import hexlet.code.dto.common.SortField;
 import hexlet.code.dto.user.UserCreateDTO;
 import hexlet.code.dto.user.UserDTO;
 import hexlet.code.dto.user.UserUpdateDTO;
@@ -14,6 +18,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,22 +40,31 @@ import tools.jackson.databind.JsonNode;
 @RequestMapping("/api/users")
 public class UserController {
 
-    private final UserService userService;
+    private static final Map<String, SortField> SORT_FIELDS =
+            Map.of(
+                    "id", SortField.of("id"),
+                    "email", SortField.text("email"),
+                    "firstName", SortField.text("firstName"),
+                    "lastName", SortField.text("lastName"),
+                    "createdAt", SortField.of("createdAt"));
 
-    public UserController(UserService userService) {
+    private final UserService userService;
+    private final PageableFactory pageableFactory;
+
+    public UserController(UserService userService, PageableFactory pageableFactory) {
         this.userService = userService;
+        this.pageableFactory = pageableFactory;
     }
 
-    @Operation(summary = "Список пользователей")
+    @Operation(summary = "Список пользователей с пагинацией и сортировкой")
     @ApiResponse(
             responseCode = "200",
             headers = @Header(name = "X-Total-Count", description = "Всего записей"))
+    @ApiResponse(responseCode = "400", description = "Невалидные параметры пагинации/сортировки")
     @GetMapping
-    public ResponseEntity<List<UserDTO>> index() {
-        List<UserDTO> users = userService.findAll();
-        return ResponseEntity.ok()
-                .header("X-Total-Count", String.valueOf(users.size()))
-                .body(users);
+    public ResponseEntity<List<UserDTO>> index(@ParameterObject ListParams params) {
+        var pageable = pageableFactory.create(params, SORT_FIELDS);
+        return PageResponses.of(userService.findAll(pageable));
     }
 
     @Operation(summary = "Пользователь по id")

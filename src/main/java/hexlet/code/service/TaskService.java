@@ -22,7 +22,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -56,9 +58,18 @@ public class TaskService {
         this.specification = specification;
     }
 
-    public List<TaskDTO> findAll(TaskFilterDTO filter) {
+    public Page<TaskDTO> findAll(TaskFilterDTO filter, Pageable pageable) {
         var spec = specification.build(filter);
-        return taskRepository.findAll(spec, Sort.by("id")).stream().map(mapper::toDto).toList();
+
+        if (pageable.isUnpaged()) {
+            var list =
+                    taskRepository.findAll(spec, pageable.getSort()).stream()
+                            .map(mapper::toDto)
+                            .toList();
+            return new PageImpl<>(list, pageable, list.size());
+        }
+
+        return taskRepository.findAll(spec, pageable).map(mapper::toDto);
     }
 
     public TaskDTO findById(Long id) {

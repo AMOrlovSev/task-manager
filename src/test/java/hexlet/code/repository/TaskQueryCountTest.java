@@ -15,15 +15,22 @@ import java.util.Set;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
 
 @SpringBootTest(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
 @Import(TestcontainersConfig.class)
 @Transactional
+@ExtendWith(OutputCaptureExtension.class)
 class TaskQueryCountTest {
 
     @Autowired private TaskService taskService;
@@ -57,12 +64,59 @@ class TaskQueryCountTest {
 
         statistics().clear();
 
-        var result = taskService.findAll(new TaskFilterDTO(null, null, null, null));
+        var result =
+                taskService.findAll(
+                        new TaskFilterDTO(null, null, null, null), Pageable.unpaged(Sort.by("id")));
 
-        assertThat(result).hasSize(10);
+        assertThat(result.getContent()).hasSize(10);
         assertThat(statistics().getPrepareStatementCount())
-                .as("@EntityGraph должен собрать taskStatus и labels одним запросом")
+                .as("@EntityGraph должен собрать taskStatus и labels одним запросом (unpaged)")
                 .isEqualTo(1);
+    }
+
+    @Test
+    void paginationQueryCountIsConstant(CapturedOutput output) {
+        var status = taskStatusRepository.findBySlug("draft").orElseThrow();
+        var label = saveLabel("qcount-pag-lbl");
+
+        for (int i = 0; i < 30; i++) {
+            var task = new Task();
+            task.setName("Task " + i);
+            task.setTaskStatus(status);
+            task.getLabels().add(label);
+            taskRepository.save(task);
+        }
+        taskRepository.flush();
+        entityManager.clear();
+
+        statistics().clear();
+        var page5 =
+                taskService.findAll(
+                        new TaskFilterDTO(null, null, null, null),
+                        PageRequest.of(0, 5, Sort.by("id")));
+        long queriesFor5 = statistics().getPrepareStatementCount();
+        entityManager.clear();
+
+        statistics().clear();
+        var page20 =
+                taskService.findAll(
+                        new TaskFilterDTO(null, null, null, null),
+                        PageRequest.of(0, 20, Sort.by("id")));
+        long queriesFor20 = statistics().getPrepareStatementCount();
+
+        assertThat(page5.getContent()).hasSize(5);
+        assertThat(page20.getContent()).hasSize(20);
+
+        // Проверяем, что количество запросов не зависит от размера страницы и не превышает 4
+        // (count query + select page + fetch taskStatus + batch fetch labels)
+        assertThat(queriesFor5)
+                .as("Количество запросов для страницы 5")
+                .isEqualTo(queriesFor20)
+                .isLessThanOrEqualTo(4);
+
+        assertThat(output.getAll())
+                .as("Hibernate не должен выполнять in-memory pagination (HHH90003004)")
+                .doesNotContain("HHH90003004");
     }
 
     @Test

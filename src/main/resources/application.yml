@@ -20,6 +20,8 @@ management:
 app:
   jwt:
     ttl: 1h
+  pagination:
+    max-size: 100
 
 springdoc:
   api-docs:

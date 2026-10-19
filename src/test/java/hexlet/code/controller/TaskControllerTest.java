@@ -1200,6 +1200,100 @@ class TaskControllerTest {
         assertThat(labelRepository.findById(label.getId())).isPresent();
     }
 
+    // ============================ pagination & sorting ============================
+
+    @Test
+    void paginationReturnsCorrectSliceAndTotalCount() throws Exception {
+        for (int i = 1; i <= 5; i++) {
+            persistTask("Task" + i, null, null, draft(), null);
+        }
+
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "2").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "5"))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].title").value("Task1"))
+                .andExpect(jsonPath("$[1].title").value("Task2"));
+
+        mockMvc.perform(get(URL).param("_start", "2").param("_end", "4").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "5"))
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].title").value("Task3"))
+                .andExpect(jsonPath("$[1].title").value("Task4"));
+
+        mockMvc.perform(get(URL).param("_start", "6").param("_end", "8").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "5"))
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void sortingDescByTitle() throws Exception {
+        persistTask("A", null, null, draft(), null);
+        persistTask("C", null, null, draft(), null);
+        persistTask("B", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("_sort", "title").param("_order", "DESC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("C"))
+                .andExpect(jsonPath("$[1].title").value("B"))
+                .andExpect(jsonPath("$[2].title").value("A"));
+    }
+
+    @Test
+    void sortingByAssigneeIdWithNullsAndSecondKeyId() throws Exception {
+        var user = persistUser("sort@x.com", "pass");
+        persistTask("T1", null, null, draft(), user);
+        persistTask("T2", null, null, draft(), null);
+        persistTask("T3", null, null, draft(), user);
+
+        mockMvc.perform(get(URL).param("_sort", "assignee_id").param("_order", "ASC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("T1"))
+                .andExpect(jsonPath("$[1].title").value("T3"))
+                .andExpect(jsonPath("$[2].title").value("T2"));
+    }
+
+    @Test
+    void paginationWithFiltersWorks() throws Exception {
+        var other = persistStatus("Other", "other");
+        persistTask("A", null, null, draft(), null);
+        persistTask("B", null, null, draft(), null);
+        persistTask("C", null, null, other, null);
+
+        mockMvc.perform(
+                        get(URL).param("status", "draft")
+                                .param("_start", "0")
+                                .param("_end", "1")
+                                .with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "2"))
+                .andExpect(jsonPath("$", hasSize(1)));
+    }
+
+    @Test
+    void paginationErrorsReturn400() throws Exception {
+
+        mockMvc.perform(get(URL).param("_start", "0").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_end", "10").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_start", "-1").param("_end", "10").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "101").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "unknown").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "title").param("_order", "up").with(auth()))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ helpers ============================
 
     private Label persistLabel(String name) {

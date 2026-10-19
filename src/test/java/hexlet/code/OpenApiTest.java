@@ -67,4 +67,22 @@ class OpenApiTest {
                                                 .jwt(j -> j.subject("1"))))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void tasksEndpointShouldHavePaginationParameters() throws Exception {
+        mockMvc.perform(get("/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(
+                        jsonPath("$.paths['/api/tasks'].get.parameters[?(@.name == '_start')]")
+                                .exists())
+                .andExpect(
+                        jsonPath("$.paths['/api/tasks'].get.parameters[?(@.name == '_end')]")
+                                .exists())
+                .andExpect(
+                        jsonPath("$.paths['/api/tasks'].get.parameters[?(@.name == '_sort')]")
+                                .exists())
+                .andExpect(
+                        jsonPath("$.paths['/api/tasks'].get.parameters[?(@.name == '_order')]")
+                                .exists());
+    }
 }

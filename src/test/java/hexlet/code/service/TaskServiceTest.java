@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import tools.jackson.databind.DeserializationFeature;
@@ -88,7 +89,9 @@ class TaskServiceTest {
         when(taskRepository.findAll(any(Specification.class), eq(Sort.by("id"))))
                 .thenReturn(List.of(t1, t2));
 
-        var result = service.findAll(new TaskFilterDTO(null, null, null, null));
+        var result =
+                service.findAll(
+                        new TaskFilterDTO(null, null, null, null), Pageable.unpaged(Sort.by("id")));
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(TaskDTO::title).containsExactly("Task1", "Task2");
@@ -100,7 +103,12 @@ class TaskServiceTest {
         when(taskRepository.findAll(any(Specification.class), eq(Sort.by("id"))))
                 .thenReturn(List.of());
 
-        assertThat(service.findAll(new TaskFilterDTO(null, null, null, null))).isEmpty();
+        assertThat(
+                        service.findAll(
+                                        new TaskFilterDTO(null, null, null, null),
+                                        Pageable.unpaged(Sort.by("id")))
+                                .getContent())
+                .isEmpty();
     }
 
     // ============================ findById ============================

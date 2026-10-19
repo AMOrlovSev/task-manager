@@ -434,6 +434,53 @@ class LabelControllerTest {
         assertThat(labelRepository.findById(label.getId())).isEmpty();
     }
 
+    // ============================ pagination & sorting ============================
+
+    @Test
+    void paginationReturnsCorrectSliceAndTotalCount() throws Exception {
+        var initialCount = labelRepository.count();
+        persistLabel("aaa");
+        persistLabel("bbb");
+        persistLabel("ccc");
+
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "2").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(initialCount + 3)))
+                .andExpect(jsonPath("$.length()").value(2));
+
+        mockMvc.perform(get(URL).param("_start", "2").param("_end", "4").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(initialCount + 3)))
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void sortingByName() throws Exception {
+        persistLabel("zzz");
+        persistLabel("aaa");
+
+        mockMvc.perform(get(URL).param("_sort", "name").param("_order", "ASC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("aaa"));
+
+        mockMvc.perform(get(URL).param("_sort", "name").param("_order", "DESC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("zzz"));
+    }
+
+    @Test
+    void paginationAndSortingErrorsReturn400() throws Exception {
+
+        mockMvc.perform(get(URL).param("_start", "0").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "unknownField").with(auth()))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "id").param("_order", "up").with(auth()))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ helpers ============================
 
     private Label persistLabel(String name) {
