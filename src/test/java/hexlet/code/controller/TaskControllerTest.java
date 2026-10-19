@@ -1284,7 +1284,7 @@ class TaskControllerTest {
         mockMvc.perform(get(URL).param("_start", "-1").param("_end", "10").with(auth()))
                 .andExpect(status().isBadRequest());
 
-        mockMvc.perform(get(URL).param("_start", "0").param("_end", "51").with(auth()))
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "101").with(auth()))
                 .andExpect(status().isBadRequest());
 
         mockMvc.perform(get(URL).param("_sort", "unknown").with(auth()))

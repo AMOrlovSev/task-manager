@@ -1,0 +1,10 @@
+spring:
+  jpa:
+    show-sql: false
+
+app:
+  admin:
+    email: hexlet@example.com
+    password: qwerty
+  mock-data:
+    enabled: false
