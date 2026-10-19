@@ -14,3 +14,5 @@ app:
   admin:
     email: hexlet@example.com
     password: qwerty
+  mock-data:
+    enabled: true

@@ -18,3 +18,5 @@ app:
     password: ${ADMIN_PASSWORD}
   jwt:
     private-key: ${JWT_PRIVATE_KEY}
+  mock-data:
+    enabled: ${MOCK_DATA_ENABLED:true}
