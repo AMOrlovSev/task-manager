@@ -1,6 +1,5 @@
 package hexlet.code.service;
 
-import hexlet.code.repository.UserRepository;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -10,15 +9,10 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final UserRepository userRepository;
     private final JwtService jwtService;
 
-    public AuthService(
-            AuthenticationManager authenticationManager,
-            UserRepository userRepository,
-            JwtService jwtService) {
+    public AuthService(AuthenticationManager authenticationManager, JwtService jwtService) {
         this.authenticationManager = authenticationManager;
-        this.userRepository = userRepository;
         this.jwtService = jwtService;
     }
 
@@ -28,14 +22,13 @@ public class AuthService {
         }
 
         String normalized = username.trim().toLowerCase();
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(normalized, password));
+        var authentication =
+                authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(normalized, password));
 
-        var user =
-                userRepository
-                        .findByEmail(normalized)
-                        .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
-
-        return jwtService.generateToken(user.getId(), user.getEmail());
+        if (!(authentication.getPrincipal() instanceof AppUserDetails principal)) {
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        return jwtService.generateToken(principal.id(), principal.email());
     }
 }
