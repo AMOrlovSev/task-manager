@@ -110,7 +110,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var user = existingUser(2L, "u@x.com");
         var task = existingTask(1L, "Task", status, user);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         var dto = service.findById(1L);
 
@@ -123,7 +123,7 @@ class TaskServiceTest {
 
     @Test
     void findByIdThrowsWhenMissing() {
-        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
+        when(taskRepository.findWithDetailsById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.findById(999L))
                 .isInstanceOf(ResourceNotFoundException.class)
@@ -280,7 +280,7 @@ class TaskServiceTest {
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("body"));
 
-        verify(taskRepository, never()).findById(any());
+        verify(taskRepository, never()).findWithDetailsById(any());
         verify(taskRepository, never()).save(any());
     }
 
@@ -291,22 +291,22 @@ class TaskServiceTest {
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("body"));
 
-        verify(taskRepository, never()).findById(any());
+        verify(taskRepository, never()).findWithDetailsById(any());
     }
 
     @Test
     void updateWithNestedObjectInTitleThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         assertThatThrownBy(
                         () ->
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"title": {"a": 1}}""")))
+                                                """
+                                        {"title": {"a": 1}}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("body"));
@@ -320,15 +320,15 @@ class TaskServiceTest {
     void updateWithNullTitleThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         assertThatThrownBy(
                         () ->
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"title": null}""")))
+                                                """
+                                        {"title": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -340,15 +340,15 @@ class TaskServiceTest {
     void updateWithBlankTitleThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         assertThatThrownBy(
                         () ->
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"title": "   "}""")))
+                                                """
+                                        {"title": "   "}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("title"));
@@ -360,15 +360,15 @@ class TaskServiceTest {
     void updateWithNullStatusThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         assertThatThrownBy(
                         () ->
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"status": null}""")))
+                                                """
+                                        {"status": null}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -380,7 +380,7 @@ class TaskServiceTest {
     void updateWithTooLongContentThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
 
         var content = "a".repeat(4001);
         assertThatThrownBy(
@@ -388,8 +388,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-                                                """
-        {"content": "%s"}"""
+"""
+{"content": "%s"}"""
                                                         .formatted(content))))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
@@ -404,7 +404,7 @@ class TaskServiceTest {
     void updateEmptyPatchKeepsEverything() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result = service.update(1L, patch("{}"));
@@ -422,7 +422,7 @@ class TaskServiceTest {
     void updateOnlyTitleTrims() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -442,7 +442,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
         task.setDescription("old content");
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -460,7 +460,7 @@ class TaskServiceTest {
     void updateIndexOnly() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -478,7 +478,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
         task.setIndex(5);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -495,7 +495,7 @@ class TaskServiceTest {
     void updateIgnoresUnknownFields() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // labels и assigneeId (camelCase) — не поля TaskUpdateDTO, должны быть проигнорированы
@@ -520,7 +520,7 @@ class TaskServiceTest {
         var draft = existingStatus(1L, "Draft", "draft");
         var toReview = existingStatus(2L, "ToReview", "to_review");
         var task = existingTask(1L, "Task", draft, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskStatusRepository.findBySlug("to_review")).thenReturn(Optional.of(toReview));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -540,7 +540,7 @@ class TaskServiceTest {
     void updateStatusToSameSlugDoesNotCallRepository() {
         var draft = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", draft, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.update(
@@ -557,7 +557,7 @@ class TaskServiceTest {
     void updateStatusToUnknownThrows() {
         var draft = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", draft, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskStatusRepository.findBySlug("nope")).thenReturn(Optional.empty());
 
         assertThatThrownBy(
@@ -565,8 +565,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"status": "nope"}""")))
+                                                """
+                                        {"status": "nope"}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("status"));
@@ -582,7 +582,7 @@ class TaskServiceTest {
         var oldUser = existingUser(2L, "old@x.com");
         var newUser = existingUser(3L, "new@x.com");
         var task = existingTask(1L, "Task", status, oldUser);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(userRepository.findById(3L)).thenReturn(Optional.of(newUser));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -603,7 +603,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var user = existingUser(2L, "u@x.com");
         var task = existingTask(1L, "Task", status, user);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.update(
@@ -621,7 +621,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var user = existingUser(2L, "u@x.com");
         var task = existingTask(1L, "Task", status, user);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.update(
@@ -639,7 +639,7 @@ class TaskServiceTest {
         var status = existingStatus(1L, "Draft", "draft");
         var user = existingUser(2L, "u@x.com");
         var task = existingTask(1L, "Task", status, user);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(userRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(
@@ -647,8 +647,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"assignee_id": 999}""")))
+                                                """
+                                        {"assignee_id": 999}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("assignee_id"));
@@ -664,7 +664,7 @@ class TaskServiceTest {
         var label = existingLabel(5L, "bug");
         var task = existingTask(1L, "Task", status, null);
         task.getLabels().add(label);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -685,7 +685,7 @@ class TaskServiceTest {
         var label = existingLabel(5L, "bug");
         var task = existingTask(1L, "Task", status, null);
         task.getLabels().add(label);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -706,7 +706,7 @@ class TaskServiceTest {
         var label = existingLabel(5L, "bug");
         var task = existingTask(1L, "Task", status, null);
         task.getLabels().add(label);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -728,7 +728,7 @@ class TaskServiceTest {
         var newLabel = existingLabel(7L, "feature");
         var task = existingTask(1L, "Task", status, null);
         task.getLabels().add(oldLabel);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(labelRepository.findAllById(List.of(7L))).thenReturn(List.of(newLabel));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -749,7 +749,7 @@ class TaskServiceTest {
         var label = existingLabel(5L, "bug");
         var task = existingTask(1L, "Task", status, null);
         task.getLabels().add(label);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(taskRepository.save(any(Task.class))).thenAnswer(inv -> inv.getArgument(0));
 
         var result =
@@ -767,7 +767,7 @@ class TaskServiceTest {
     void updateWithUnknownLabelThrows() {
         var status = existingStatus(1L, "Draft", "draft");
         var task = existingTask(1L, "Task", status, null);
-        when(taskRepository.findById(1L)).thenReturn(Optional.of(task));
+        when(taskRepository.findWithDetailsById(1L)).thenReturn(Optional.of(task));
         when(labelRepository.findAllById(List.of(999L))).thenReturn(List.of());
 
         assertThatThrownBy(
@@ -775,8 +775,8 @@ class TaskServiceTest {
                                 service.update(
                                         1L,
                                         patch(
-"""
-{"taskLabelIds": [999]}""")))
+                                                """
+                                        {"taskLabelIds": [999]}""")))
                 .isInstanceOf(ValidationException.class)
                 .extracting(ex -> ((ValidationException) ex).getErrors())
                 .satisfies(errors -> assertThat(errors).containsKey("taskLabelIds"));
@@ -788,15 +788,15 @@ class TaskServiceTest {
 
     @Test
     void updateNonExistentTaskThrows() {
-        when(taskRepository.findById(999L)).thenReturn(Optional.empty());
+        when(taskRepository.findWithDetailsById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(
                         () ->
                                 service.update(
                                         999L,
                                         patch(
-"""
-{"title": "X"}""")))
+                                                """
+                                        {"title": "X"}""")))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("999");
     }

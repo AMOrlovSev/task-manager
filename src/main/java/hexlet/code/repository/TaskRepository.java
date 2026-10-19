@@ -2,6 +2,7 @@ package hexlet.code.repository;
 
 import hexlet.code.model.Task;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -13,6 +14,9 @@ public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificat
     @Override
     @EntityGraph(attributePaths = {"taskStatus", "labels"})
     List<Task> findAll(Specification<Task> spec, Sort sort);
+
+    @EntityGraph(attributePaths = {"taskStatus", "labels"})
+    Optional<Task> findWithDetailsById(Long id);
 
     boolean existsByAssigneeId(Long assigneeId);
 
