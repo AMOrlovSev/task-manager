@@ -62,7 +62,7 @@ public class TaskService {
     }
 
     public TaskDTO findById(Long id) {
-        return mapper.toDto(getOrThrow(id));
+        return mapper.toDto(getWithDetailsOrThrow(id));
     }
 
     @Transactional
@@ -81,7 +81,7 @@ public class TaskService {
     @Transactional
     public TaskDTO update(Long id, JsonNode patchNode) {
         patchSupport.requireObject(patchNode);
-        var task = getOrThrow(id);
+        var task = getWithDetailsOrThrow(id);
         var dto = patchSupport.apply(mapper.toUpdateDto(task), patchNode, TaskUpdateDTO.class);
 
         dto.setTitle(dto.getTitle().trim());
@@ -139,6 +139,13 @@ public class TaskService {
     private Task getOrThrow(Long id) {
         return taskRepository
                 .findById(id)
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Task with id " + id + " not found"));
+    }
+
+    private Task getWithDetailsOrThrow(Long id) {
+        return taskRepository
+                .findWithDetailsById(id)
                 .orElseThrow(
                         () -> new ResourceNotFoundException("Task with id " + id + " not found"));
     }

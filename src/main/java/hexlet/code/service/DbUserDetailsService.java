@@ -1,7 +1,6 @@
 package hexlet.code.service;
 
 import hexlet.code.repository.UserRepository;
-import java.util.List;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -24,13 +23,10 @@ public class DbUserDetailsService implements UserDetailsService {
         String normalized = username.trim().toLowerCase();
         return userRepository
                 .findByEmail(normalized)
-                .map(
+                .<UserDetails>map(
                         user ->
-                                org.springframework.security.core.userdetails.User.withUsername(
-                                                user.getEmail())
-                                        .password(user.getPasswordDigest())
-                                        .authorities(List.of())
-                                        .build())
+                                new AppUserDetails(
+                                        user.getId(), user.getEmail(), user.getPasswordDigest()))
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + normalized));
     }
 }
