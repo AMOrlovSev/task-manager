@@ -1,5 +1,9 @@
 package hexlet.code.controller;
 
+import hexlet.code.component.PageableFactory;
+import hexlet.code.dto.common.ListParams;
+import hexlet.code.dto.common.PageResponses;
+import hexlet.code.dto.common.SortField;
 import hexlet.code.dto.task.TaskCreateDTO;
 import hexlet.code.dto.task.TaskDTO;
 import hexlet.code.dto.task.TaskFilterDTO;
@@ -14,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -34,20 +39,35 @@ import tools.jackson.databind.JsonNode;
 @RequestMapping("/api/tasks")
 public class TaskController {
 
-    private final TaskService service;
+    // Белый список сортировки
+    private static final Map<String, SortField> SORT_FIELDS =
+            Map.ofEntries(
+                    Map.entry("id", SortField.of("id")),
+                    Map.entry("title", SortField.text("name")),
+                    Map.entry("content", SortField.text("description")),
+                    Map.entry("index", SortField.of("index")),
+                    Map.entry("createdAt", SortField.of("createdAt")),
+                    Map.entry("assignee_id", SortField.of("assignee.id")),
+                    Map.entry("status", SortField.of("taskStatus.slug")));
 
-    public TaskController(TaskService service) {
+    private final TaskService service;
+    private final PageableFactory pageableFactory;
+
+    public TaskController(TaskService service, PageableFactory pageableFactory) {
         this.service = service;
+        this.pageableFactory = pageableFactory;
     }
 
-    @Operation(summary = "Список задач с фильтрами")
+    @Operation(summary = "Список задач с фильтрами и пагинацией")
     @ApiResponse(
             responseCode = "200",
             headers = @Header(name = "X-Total-Count", description = "Всего записей"))
+    @ApiResponse(responseCode = "400", description = "Невалидные параметры пагинации/сортировки")
     @GetMapping
-    public ResponseEntity<List<TaskDTO>> index(@ParameterObject TaskFilterDTO filter) {
-        var list = service.findAll(filter);
-        return ResponseEntity.ok().header("X-Total-Count", String.valueOf(list.size())).body(list);
+    public ResponseEntity<List<TaskDTO>> index(
+            @ParameterObject TaskFilterDTO filter, @ParameterObject ListParams params) {
+        var pageable = pageableFactory.create(params, SORT_FIELDS);
+        return PageResponses.of(service.findAll(filter, pageable));
     }
 
     @Operation(summary = "Задача по id")
