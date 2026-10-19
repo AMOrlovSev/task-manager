@@ -143,6 +143,46 @@ class TaskControllerTest {
     }
 
     @Test
+    void filterByTitleContMatchesCyrillicSubstringIgnoringCase() throws Exception {
+        persistTask("Создать отчёт", null, null, draft(), null);
+        persistTask("Другая задача", null, null, draft(), null);
+        persistTask("Отчёт за квартал", null, null, draft(), null);
+
+        // нижний регистр в запросе → находит
+        mockMvc.perform(get(URL).param("titleCont", "создать").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Создать отчёт"));
+
+        // верхний регистр в запросе → тоже находит
+        mockMvc.perform(get(URL).param("titleCont", "СОЗДАТЬ").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Создать отчёт"));
+
+        // подстрока из середины слова
+        mockMvc.perform(get(URL).param("titleCont", "здат").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("Создать отчёт"));
+    }
+
+    @Test
+    void filterByTitleContEscapesBackslash() throws Exception {
+        persistTask("path\\to\\file", null, null, draft(), null);
+        // Контроль: без экранирования шаблон '%path\to\file%' ESCAPE '\'
+        // схлопнулся бы в '%pathtofile%' и нашёл бы эту задачу, а не искомую.
+        persistTask("pathtofile", null, null, draft(), null);
+
+        mockMvc.perform(get(URL).param("titleCont", "path\\to\\file").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "1"))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].title").value("path\\to\\file"));
+    }
+
+    @Test
     void filterByAssigneeId() throws Exception {
         var user = persistUser("u-f1@x.com", "qwerty123");
         persistTask("Assigned", null, null, draft(), user);
@@ -386,6 +426,27 @@ class TaskControllerTest {
                                 .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("Padded"));
+    }
+
+    @Test
+    void createTrimsSpacesAroundTitleInDatabase() throws Exception {
+        var body =
+                """
+                { "title": "   Создать отчёт   ", "status": "draft" }
+                """;
+
+        mockMvc.perform(
+                        post(URL)
+                                .with(auth())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Создать отчёт"));
+
+        // Дополнительно проверяем, что и в БД сохранено обрезанное значение:
+        // createTrimsTitle смотрит только на ответ, а тут — состояние после save().
+        assertThat(taskRepository.findAll().stream().map(Task::getName).toList())
+                .containsExactly("Создать отчёт");
     }
 
     @Test
