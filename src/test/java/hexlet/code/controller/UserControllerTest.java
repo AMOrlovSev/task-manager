@@ -675,6 +675,69 @@ class UserControllerTest {
         mockMvc.perform(delete(URL + "/" + user.getId())).andExpect(status().isUnauthorized());
     }
 
+    // ============================ pagination & sorting ============================
+
+    @Test
+    void paginationReturnsCorrectSliceAndTotalCount() throws Exception {
+        var viewer = persistUser("viewer@x.com", "qwerty123", null, null);
+        for (int i = 0; i < 5; i++) {
+            persistUser("user" + i + "@x.com", "pass", null, null);
+        }
+
+        // Первая страница
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "2").with(authAs(viewer)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "7")) // 5 + viewer + admin (hexlet)
+                .andExpect(jsonPath("$.length()").value(2));
+
+        // Вторая страница
+        mockMvc.perform(get(URL).param("_start", "2").param("_end", "4").with(authAs(viewer)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", "7"))
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void sortingByEmail() throws Exception {
+        var viewer = persistUser("viewer@x.com", "qwerty123", null, null);
+        persistUser("zzz@x.com", "pass", null, null);
+        persistUser("aaa@x.com", "pass", null, null);
+
+        mockMvc.perform(
+                        get(URL).param("_sort", "email")
+                                .param("_order", "ASC")
+                                .with(authAs(viewer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].email").value("aaa@x.com"))
+                .andExpect(jsonPath("$[1].email").value("hexlet@example.com"))
+                .andExpect(jsonPath("$[2].email").value("viewer@x.com"))
+                .andExpect(jsonPath("$[3].email").value("zzz@x.com"));
+
+        mockMvc.perform(
+                        get(URL).param("_sort", "email")
+                                .param("_order", "DESC")
+                                .with(authAs(viewer)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].email").value("zzz@x.com"))
+                .andExpect(jsonPath("$[1].email").value("viewer@x.com"))
+                .andExpect(jsonPath("$[2].email").value("hexlet@example.com"))
+                .andExpect(jsonPath("$[3].email").value("aaa@x.com"));
+    }
+
+    @Test
+    void paginationAndSortingErrorsReturn400() throws Exception {
+        var viewer = persistUser("viewer@x.com", "qwerty123", null, null);
+
+        mockMvc.perform(get(URL).param("_start", "0").with(authAs(viewer)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "unknownField").with(authAs(viewer)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "id").param("_order", "up").with(authAs(viewer)))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ helpers ============================
 
     private User persistUser(String email, String rawPassword, String firstName, String lastName) {

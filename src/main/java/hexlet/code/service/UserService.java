@@ -12,8 +12,9 @@ import hexlet.code.mapper.UserMapper;
 import hexlet.code.model.User;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.UserRepository;
-import java.util.List;
 import java.util.Map;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,8 +43,8 @@ public class UserService {
         this.taskRepository = taskRepository;
     }
 
-    public List<UserDTO> findAll() {
-        return userRepository.findAll().stream().map(userMapper::toDto).toList();
+    public Page<UserDTO> findAll(Pageable pageable) {
+        return userRepository.findAll(pageable).map(userMapper::toDto);
     }
 
     public UserDTO findById(Long id) {
