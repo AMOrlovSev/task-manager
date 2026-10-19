@@ -1,10 +1,15 @@
 package hexlet.code.controller;
 
+import hexlet.code.component.PageableFactory;
+import hexlet.code.dto.common.ListParams;
+import hexlet.code.dto.common.PageResponses;
+import hexlet.code.dto.common.SortField;
 import hexlet.code.dto.task_status.TaskStatusCreateDTO;
 import hexlet.code.dto.task_status.TaskStatusDTO;
 import hexlet.code.dto.task_status.TaskStatusUpdateDTO;
 import hexlet.code.service.TaskStatusService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -13,6 +18,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,18 +39,31 @@ import tools.jackson.databind.JsonNode;
 @RequestMapping("/api/task_statuses")
 public class TaskStatusController {
 
-    private final TaskStatusService service;
+    private static final Map<String, SortField> SORT_FIELDS =
+            Map.of(
+                    "id", SortField.of("id"),
+                    "name", SortField.text("name"),
+                    "slug", SortField.of("slug"),
+                    "createdAt", SortField.of("createdAt"));
 
-    public TaskStatusController(TaskStatusService service) {
+    private final TaskStatusService service;
+    private final PageableFactory pageableFactory;
+
+    public TaskStatusController(TaskStatusService service, PageableFactory pageableFactory) {
         this.service = service;
+        this.pageableFactory = pageableFactory;
     }
 
-    @Operation(summary = "Список статусов")
+    @Operation(summary = "Список статусов с пагинацией и сортировкой")
+    @ApiResponse(
+            responseCode = "200",
+            headers = @Header(name = "X-Total-Count", description = "Всего записей"))
+    @ApiResponse(responseCode = "400", description = "Невалидные параметры пагинации/сортировки")
     @SecurityRequirements
     @GetMapping
-    public ResponseEntity<List<TaskStatusDTO>> index() {
-        List<TaskStatusDTO> list = service.findAll();
-        return ResponseEntity.ok().header("X-Total-Count", String.valueOf(list.size())).body(list);
+    public ResponseEntity<List<TaskStatusDTO>> index(@ParameterObject ListParams params) {
+        var pageable = pageableFactory.create(params, SORT_FIELDS);
+        return PageResponses.of(service.findAll(pageable));
     }
 
     @Operation(summary = "Статус по id")

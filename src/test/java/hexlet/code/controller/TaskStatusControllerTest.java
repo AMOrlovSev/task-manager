@@ -472,6 +472,51 @@ class TaskStatusControllerTest {
         assertThat(repository.findById(status.getId())).isPresent();
     }
 
+    // ============================ pagination & sorting ============================
+
+    @Test
+    void paginationReturnsCorrectSliceAndTotalCount() throws Exception {
+
+        var initialCount = repository.count();
+        persist("AAA", "aaa");
+        persist("BBB", "bbb");
+        persist("CCC", "ccc");
+
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "2"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(initialCount + 3)))
+                .andExpect(jsonPath("$.length()").value(2));
+
+        mockMvc.perform(get(URL).param("_start", "2").param("_end", "4"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Total-Count", String.valueOf(initialCount + 3)))
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void sortingByName() throws Exception {
+        persist("ZZZ", "zzz");
+        persist("AAA", "aaa");
+
+        mockMvc.perform(get(URL).param("_sort", "name").param("_order", "ASC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("AAA"));
+
+        mockMvc.perform(get(URL).param("_sort", "name").param("_order", "DESC"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("ZZZ"));
+    }
+
+    @Test
+    void paginationAndSortingErrorsReturn400() throws Exception {
+        mockMvc.perform(get(URL).param("_start", "0")).andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "unknownField")).andExpect(status().isBadRequest());
+
+        mockMvc.perform(get(URL).param("_sort", "id").param("_order", "up"))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ helpers ============================
 
     private TaskStatus persist(String name, String slug) {

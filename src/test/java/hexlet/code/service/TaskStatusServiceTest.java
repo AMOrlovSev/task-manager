@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -63,16 +65,19 @@ class TaskStatusServiceTest {
 
     @Test
     void findAllReturnsList() {
-        when(repository.findAll(Sort.by("id")))
+        when(repository.findAll(any(Pageable.class)))
                 .thenReturn(
-                        List.of(
-                                existing(1L, "Draft", "draft"),
-                                existing(2L, "ToReview", "to_review")));
+                        new PageImpl<>(
+                                List.of(
+                                        existing(1L, "Draft", "draft"),
+                                        existing(2L, "ToReview", "to_review"))));
 
-        var result = service.findAll();
+        var result = service.findAll(Pageable.unpaged(Sort.by("id")));
 
-        assertThat(result).hasSize(2);
-        assertThat(result).extracting(TaskStatusDTO::slug).containsExactly("draft", "to_review");
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent())
+                .extracting(TaskStatusDTO::slug)
+                .containsExactly("draft", "to_review");
     }
 
     @Test
