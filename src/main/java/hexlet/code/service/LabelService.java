@@ -16,7 +16,8 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
@@ -34,8 +35,8 @@ public class LabelService {
     private final LabelMapper labelMapper;
     private final PatchSupport patchSupport;
 
-    public List<LabelDTO> findAll() {
-        return labelRepository.findAll(Sort.by("id")).stream().map(labelMapper::toDto).toList();
+    public Page<LabelDTO> findAll(Pageable pageable) {
+        return labelRepository.findAll(pageable).map(labelMapper::toDto);
     }
 
     public LabelDTO findById(Long id) {

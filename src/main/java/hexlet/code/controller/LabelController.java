@@ -1,5 +1,9 @@
 package hexlet.code.controller;
 
+import hexlet.code.component.PageableFactory;
+import hexlet.code.dto.common.ListParams;
+import hexlet.code.dto.common.PageResponses;
+import hexlet.code.dto.common.SortField;
 import hexlet.code.dto.label.LabelCreateDTO;
 import hexlet.code.dto.label.LabelDTO;
 import hexlet.code.dto.label.LabelUpdateDTO;
@@ -13,7 +17,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,18 +38,24 @@ import tools.jackson.databind.JsonNode;
 @RequiredArgsConstructor
 public class LabelController {
 
-    private final LabelService labelService;
+    private static final Map<String, SortField> SORT_FIELDS =
+            Map.of(
+                    "id", SortField.of("id"),
+                    "name", SortField.text("name"),
+                    "createdAt", SortField.of("createdAt"));
 
-    @Operation(summary = "Список меток")
+    private final LabelService labelService;
+    private final PageableFactory pageableFactory;
+
+    @Operation(summary = "Список меток с пагинацией и сортировкой")
     @ApiResponse(
             responseCode = "200",
             headers = @Header(name = "X-Total-Count", description = "Всего записей"))
+    @ApiResponse(responseCode = "400", description = "Невалидные параметры пагинации/сортировки")
     @GetMapping
-    public ResponseEntity<List<LabelDTO>> index() {
-        var labels = labelService.findAll();
-        return ResponseEntity.ok()
-                .header("X-Total-Count", String.valueOf(labels.size()))
-                .body(labels);
+    public ResponseEntity<List<LabelDTO>> index(@ParameterObject ListParams params) {
+        var pageable = pageableFactory.create(params, SORT_FIELDS);
+        return PageResponses.of(labelService.findAll(pageable));
     }
 
     @Operation(summary = "Метка по id")

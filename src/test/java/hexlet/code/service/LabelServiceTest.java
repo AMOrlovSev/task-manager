@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
@@ -63,13 +65,15 @@ class LabelServiceTest {
 
     @Test
     void findAllReturnsSortedList() {
-        when(repository.findAll(Sort.by("id")))
-                .thenReturn(List.of(existing(1L, "bug"), existing(2L, "feature")));
+        when(repository.findAll(any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(existing(1L, "bug"), existing(2L, "feature"))));
 
-        var result = service.findAll();
+        var result = service.findAll(Pageable.unpaged(Sort.by("id")));
 
-        assertThat(result).hasSize(2);
-        assertThat(result).extracting(LabelDTO::name).containsExactly("bug", "feature");
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getContent())
+                .extracting(LabelDTO::name)
+                .containsExactly("bug", "feature");
     }
 
     @Test
