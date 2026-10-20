@@ -17,7 +17,7 @@ public class PageableFactory {
 
     private final int maxPageSize;
 
-    public PageableFactory(@Value("${app.pagination.max-size:50}") int maxPageSize) {
+    public PageableFactory(@Value("${app.pagination.max-size:100}") int maxPageSize) {
         this.maxPageSize = maxPageSize;
     }
 
@@ -61,7 +61,7 @@ public class PageableFactory {
                     "_sort", "Unknown sort field. Allowed: " + new TreeSet<>(allowed.keySet()));
         }
 
-        var order = new Sort.Order(parseDirection(p.order()), field.property());
+        var order = new Sort.Order(parseDirection(p.order()), field.property()).nullsLast();
         if (field.ignoreCase()) {
             order = order.ignoreCase();
         }

@@ -3,6 +3,8 @@ package hexlet.code.component;
 import hexlet.code.dto.label.LabelCreateDTO;
 import hexlet.code.dto.task.TaskCreateDTO;
 import hexlet.code.dto.user.UserCreateDTO;
+import hexlet.code.exception.DuplicateEmailException;
+import hexlet.code.exception.DuplicateResourceException;
 import hexlet.code.model.TaskStatus;
 import hexlet.code.repository.TaskRepository;
 import hexlet.code.repository.TaskStatusRepository;
@@ -66,8 +68,10 @@ public class MockDataInitializer implements ApplicationRunner {
                                 new UserCreateDTO(
                                         "User" + i, "Lastname" + i, email, "password123"));
                 userIds.add(created.id());
+            } catch (DuplicateEmailException e) {
+                log.info("Mock user already exists: {}", email);
             } catch (Exception e) {
-                // Игнорируем, если уже существует
+                log.warn("Failed to create mock user: {}", email, e);
             }
         }
 
@@ -80,8 +84,10 @@ public class MockDataInitializer implements ApplicationRunner {
             try {
                 var created = labelService.create(new LabelCreateDTO(name));
                 labelIds.add(created.id());
+            } catch (DuplicateResourceException e) {
+                log.info("Mock label already exists: {}", name);
             } catch (Exception e) {
-                // Игнорируем, если уже существует
+                log.warn("Failed to create mock label: {}", name, e);
             }
         }
 

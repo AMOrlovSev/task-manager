@@ -19,4 +19,4 @@ app:
   jwt:
     private-key: ${JWT_PRIVATE_KEY}
   mock-data:
-    enabled: ${MOCK_DATA_ENABLED:true}
+    enabled: ${MOCK_DATA_ENABLED:false}

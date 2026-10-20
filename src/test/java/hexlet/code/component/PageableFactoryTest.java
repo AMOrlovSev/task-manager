@@ -12,7 +12,7 @@ import org.springframework.data.domain.Sort;
 
 class PageableFactoryTest {
 
-    private final PageableFactory factory = new PageableFactory(50);
+    private final PageableFactory factory = new PageableFactory(100);
     private final Map<String, SortField> allowed =
             Map.of(
                     "id", SortField.of("id"),
@@ -68,15 +68,6 @@ class PageableFactoryTest {
     }
 
     @Test
-    void hugeNumbersDoNotOverflow() {
-        // size = MAX - MAX = 0, должно выбросить исключение, но без ArithmeticException
-        var p = new ListParams(Integer.MAX_VALUE, Integer.MAX_VALUE, null, null);
-        assertThatThrownBy(() -> factory.create(p, allowed))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Validation failed");
-    }
-
-    @Test
     void validPageRequest() {
         var p = new ListParams(20, 30, null, null);
         var pageable = factory.create(p, allowed);
@@ -113,8 +104,10 @@ class PageableFactoryTest {
         var p = new ListParams(0, 10, "title", null);
         var pageable = factory.create(p, allowed);
 
-        assertThat(pageable.getSort())
-                .isEqualTo(Sort.by(Sort.Order.asc("name").ignoreCase(), Sort.Order.asc("id")));
+        var expectedSort =
+                Sort.by(Sort.Order.asc("name").ignoreCase().nullsLast(), Sort.Order.asc("id"));
+
+        assertThat(pageable.getSort()).isEqualTo(expectedSort);
     }
 
     @Test
@@ -122,7 +115,9 @@ class PageableFactoryTest {
         var p = new ListParams(0, 10, "id", null);
         var pageable = factory.create(p, allowed);
 
-        assertThat(pageable.getSort()).isEqualTo(Sort.by("id"));
+        var expectedSort = Sort.by(Sort.Order.asc("id").nullsLast());
+
+        assertThat(pageable.getSort()).isEqualTo(expectedSort);
     }
 
     @Test
@@ -131,5 +126,28 @@ class PageableFactoryTest {
         var pageable = factory.create(p, allowed);
 
         assertThat(pageable.getSort().getOrderFor("name").isIgnoreCase()).isTrue();
+    }
+
+    @Test
+    void exactlyMaxSizePasses() {
+        var p = new ListParams(0, 100, null, null);
+        var pageable = factory.create(p, allowed);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void maxSizePlusOneThrows() {
+        var p = new ListParams(0, 101, null, null);
+        assertThatThrownBy(() -> factory.create(p, allowed))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void hugeSizeThrows() {
+        var p = new ListParams(0, Integer.MAX_VALUE, null, null);
+
+        assertThatThrownBy(() -> factory.create(p, allowed))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Validation failed");
     }
 }

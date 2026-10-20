@@ -1294,6 +1294,82 @@ class TaskControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    // ============================ missing tests ============================
+
+    @Test
+    void paginationKeepsLabelsFullyLoaded() throws Exception {
+        var label1 = persistLabel("keep-lbl-1");
+        var label2 = persistLabel("keep-lbl-2");
+        var task = persistTask("WithLabels", null, null, draft(), null);
+        task.getLabels().add(label1);
+        task.getLabels().add(label2);
+        taskRepository.saveAndFlush(task);
+
+        entityManager.clear();
+
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "10").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].taskLabelIds", hasSize(2)))
+                .andExpect(
+                        jsonPath(
+                                "$[0].taskLabelIds",
+                                containsInAnyOrder(
+                                        label1.getId().intValue(), label2.getId().intValue())));
+    }
+
+    @Test
+    void sortingByIndex() throws Exception {
+        persistTask("Second", null, 20, draft(), null);
+        persistTask("First", null, 10, draft(), null);
+        persistTask("Third", null, 30, draft(), null);
+
+        mockMvc.perform(get(URL).param("_sort", "index").param("_order", "ASC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("First"))
+                .andExpect(jsonPath("$[1].title").value("Second"))
+                .andExpect(jsonPath("$[2].title").value("Third"));
+    }
+
+    @Test
+    void sortingByContent() throws Exception {
+        persistTask("B", "b-content", null, draft(), null);
+        persistTask("A", "a-content", null, draft(), null);
+        persistTask("C", "c-content", null, draft(), null);
+
+        mockMvc.perform(get(URL).param("_sort", "content").param("_order", "ASC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("A"))
+                .andExpect(jsonPath("$[1].title").value("B"))
+                .andExpect(jsonPath("$[2].title").value("C"));
+    }
+
+    @Test
+    void sortingByStatus() throws Exception {
+        var published = taskStatusRepository.findBySlug("published").orElseThrow();
+        var draftStatus = draft();
+
+        persistTask("Published", null, null, published, null);
+        persistTask("Draft", null, null, draftStatus, null);
+
+        mockMvc.perform(get(URL).param("_sort", "status").param("_order", "ASC").with(auth()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("Draft"))
+                .andExpect(jsonPath("$[1].title").value("Published"));
+    }
+
+    @Test
+    void paginationExactlyMaxSizePasses() throws Exception {
+        mockMvc.perform(get(URL).param("_start", "0").param("_end", "100").with(auth()))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void paginationErrorsForNonNumericStart() throws Exception {
+        mockMvc.perform(get(URL).param("_start", "abc").param("_end", "10").with(auth()))
+                .andExpect(status().isBadRequest());
+    }
+
     // ============================ helpers ============================
 
     private Label persistLabel(String name) {

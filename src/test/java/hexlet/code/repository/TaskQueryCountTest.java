@@ -76,13 +76,24 @@ class TaskQueryCountTest {
 
     @Test
     void paginationQueryCountIsConstant(CapturedOutput output) {
-        var status = taskStatusRepository.findBySlug("draft").orElseThrow();
+
+        var draft = taskStatusRepository.findBySlug("draft").orElseThrow();
+        var toReview = taskStatusRepository.findBySlug("to_review").orElseThrow();
+        var published = taskStatusRepository.findBySlug("published").orElseThrow();
         var label = saveLabel("qcount-pag-lbl");
 
         for (int i = 0; i < 30; i++) {
             var task = new Task();
             task.setName("Task " + i);
-            task.setTaskStatus(status);
+
+            if (i % 3 == 0) {
+                task.setTaskStatus(draft);
+            } else if (i % 3 == 1) {
+                task.setTaskStatus(toReview);
+            } else {
+                task.setTaskStatus(published);
+            }
+
             task.getLabels().add(label);
             taskRepository.save(task);
         }
@@ -107,16 +118,12 @@ class TaskQueryCountTest {
         assertThat(page5.getContent()).hasSize(5);
         assertThat(page20.getContent()).hasSize(20);
 
-        // Проверяем, что количество запросов не зависит от размера страницы и не превышает 4
-        // (count query + select page + fetch taskStatus + batch fetch labels)
         assertThat(queriesFor5)
                 .as("Количество запросов для страницы 5")
                 .isEqualTo(queriesFor20)
                 .isLessThanOrEqualTo(4);
 
-        assertThat(output.getAll())
-                .as("Hibernate не должен выполнять in-memory pagination (HHH90003004)")
-                .doesNotContain("HHH90003004");
+        assertThat(output.getAll()).doesNotContain("HHH90003004");
     }
 
     @Test
