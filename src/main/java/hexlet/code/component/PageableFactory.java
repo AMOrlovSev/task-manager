@@ -17,7 +17,7 @@ public class PageableFactory {
 
     private final int maxPageSize;
 
-    public PageableFactory(@Value("${app.pagination.max-size:50}") int maxPageSize) {
+    public PageableFactory(@Value("${app.pagination.max-size:100}") int maxPageSize) {
         this.maxPageSize = maxPageSize;
     }
 

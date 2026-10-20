@@ -12,7 +12,7 @@ import org.springframework.data.domain.Sort;
 
 class PageableFactoryTest {
 
-    private final PageableFactory factory = new PageableFactory(50);
+    private final PageableFactory factory = new PageableFactory(100);
     private final Map<String, SortField> allowed =
             Map.of(
                     "id", SortField.of("id"),
@@ -65,15 +65,6 @@ class PageableFactoryTest {
         var p = new ListParams(5, 15, null, null); // size = 10, 5 % 10 != 0
         assertThatThrownBy(() -> factory.create(p, allowed))
                 .isInstanceOf(ValidationException.class);
-    }
-
-    @Test
-    void hugeNumbersDoNotOverflow() {
-        // size = MAX - MAX = 0, должно выбросить исключение, но без ArithmeticException
-        var p = new ListParams(Integer.MAX_VALUE, Integer.MAX_VALUE, null, null);
-        assertThatThrownBy(() -> factory.create(p, allowed))
-                .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Validation failed");
     }
 
     @Test
@@ -131,5 +122,28 @@ class PageableFactoryTest {
         var pageable = factory.create(p, allowed);
 
         assertThat(pageable.getSort().getOrderFor("name").isIgnoreCase()).isTrue();
+    }
+
+    @Test
+    void exactlyMaxSizePasses() {
+        var p = new ListParams(0, 100, null, null);
+        var pageable = factory.create(p, allowed);
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void maxSizePlusOneThrows() {
+        var p = new ListParams(0, 101, null, null);
+        assertThatThrownBy(() -> factory.create(p, allowed))
+                .isInstanceOf(ValidationException.class);
+    }
+
+    @Test
+    void hugeNumbersDoNotOverflow() {
+        var p = new ListParams(0, Integer.MAX_VALUE, null, null);
+        // 0 до Integer.MAX_VALUE = 2,147,483,647, что больше 100, поэтому должно выбросить ошибку
+        assertThatThrownBy(() -> factory.create(p, allowed))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Validation failed");
     }
 }
