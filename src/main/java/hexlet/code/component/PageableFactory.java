@@ -61,7 +61,7 @@ public class PageableFactory {
                     "_sort", "Unknown sort field. Allowed: " + new TreeSet<>(allowed.keySet()));
         }
 
-        var order = new Sort.Order(parseDirection(p.order()), field.property());
+        var order = new Sort.Order(parseDirection(p.order()), field.property()).nullsLast();
         if (field.ignoreCase()) {
             order = order.ignoreCase();
         }

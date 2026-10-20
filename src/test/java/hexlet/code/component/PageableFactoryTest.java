@@ -105,7 +105,11 @@ class PageableFactoryTest {
         var pageable = factory.create(p, allowed);
 
         assertThat(pageable.getSort())
-                .isEqualTo(Sort.by(Sort.Order.asc("name").ignoreCase(), Sort.Order.asc("id")));
+                .isEqualTo(
+                        Sort.by(
+                                Sort.Order.asc("name").ignoreCase().nullsLast(),
+                                Sort.Order.asc("id") //
+                                ));
     }
 
     @Test
@@ -113,7 +117,7 @@ class PageableFactoryTest {
         var p = new ListParams(0, 10, "id", null);
         var pageable = factory.create(p, allowed);
 
-        assertThat(pageable.getSort()).isEqualTo(Sort.by("id"));
+        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("id").nullsLast()));
     }
 
     @Test
