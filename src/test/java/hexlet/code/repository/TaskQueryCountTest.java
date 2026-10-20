@@ -86,9 +86,13 @@ class TaskQueryCountTest {
             var task = new Task();
             task.setName("Task " + i);
 
-            if (i % 3 == 0) task.setTaskStatus(draft);
-            else if (i % 3 == 1) task.setTaskStatus(toReview);
-            else task.setTaskStatus(published);
+            if (i % 3 == 0) {
+                task.setTaskStatus(draft);
+            } else if (i % 3 == 1) {
+                task.setTaskStatus(toReview);
+            } else {
+                task.setTaskStatus(published);
+            }
 
             task.getLabels().add(label);
             taskRepository.save(task);

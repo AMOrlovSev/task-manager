@@ -20,7 +20,3 @@ app:
     private-key: ${JWT_PRIVATE_KEY}
   mock-data:
     enabled: ${MOCK_DATA_ENABLED:false}
-
-server:
-  port: ${PORT:8080}
-  address: 0.0.0.0

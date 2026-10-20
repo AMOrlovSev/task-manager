@@ -104,12 +104,10 @@ class PageableFactoryTest {
         var p = new ListParams(0, 10, "title", null);
         var pageable = factory.create(p, allowed);
 
-        assertThat(pageable.getSort())
-                .isEqualTo(
-                        Sort.by(
-                                Sort.Order.asc("name").ignoreCase().nullsLast(),
-                                Sort.Order.asc("id") //
-                                ));
+        var expectedSort =
+                Sort.by(Sort.Order.asc("name").ignoreCase().nullsLast(), Sort.Order.asc("id"));
+
+        assertThat(pageable.getSort()).isEqualTo(expectedSort);
     }
 
     @Test
@@ -117,7 +115,9 @@ class PageableFactoryTest {
         var p = new ListParams(0, 10, "id", null);
         var pageable = factory.create(p, allowed);
 
-        assertThat(pageable.getSort()).isEqualTo(Sort.by(Sort.Order.asc("id").nullsLast()));
+        var expectedSort = Sort.by(Sort.Order.asc("id").nullsLast());
+
+        assertThat(pageable.getSort()).isEqualTo(expectedSort);
     }
 
     @Test
@@ -143,9 +143,9 @@ class PageableFactoryTest {
     }
 
     @Test
-    void hugeNumbersDoNotOverflow() {
+    void hugeSizeThrows() {
         var p = new ListParams(0, Integer.MAX_VALUE, null, null);
-        // 0 до Integer.MAX_VALUE = 2,147,483,647, что больше 100, поэтому должно выбросить ошибку
+
         assertThatThrownBy(() -> factory.create(p, allowed))
                 .isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Validation failed");
